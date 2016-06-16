@@ -934,6 +934,8 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 
 			cout<<t1<<" "<<t2<<" "<<t3<<" "<<dddataCurr.pairNum<<"  "<<setw(8)<<nEpoch<<setw(5)<<refPrn;
 			cout<<endl;
+			/*      modify the shell*/
+
 
 			dddataCurr.ZeroElem(); ambinfo.ZeroElem();
 			spp.DoubleDiff(refPrn,refpos,lastSdData,dddataCurr);
