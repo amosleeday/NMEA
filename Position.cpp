@@ -891,6 +891,7 @@ int Position::SelectRefSate(SppInfo sppinfobase,SppInfo sppinforover,double mask
 				pos2[count]			=j;
 				ele[count]				=(sppinfobase.ele[i]+sppinforover.ele[j])/2;
 				lastSdData.ele[count]=ele[count];
+				/*set is_initRTKDone=1 and prnPreviuos=XXX, fix the refsat*/
 				if (is_initRTKDone==1&&refPrnPre>0&&prnlist1[count]==refPrnPre)
 					ind=count;
 				
@@ -910,7 +911,7 @@ int Position::SelectRefSate(SppInfo sppinfobase,SppInfo sppinforover,double mask
 	// set the elevations to the obsinfo 
 	SetEleToObsinfo(obsinfo,sppinfobase,sppinforover,pos1,pos2,temprefPrn,count);
 //	refPrn=temprefPrn;
-	//SdData sddata(count);  //can not find the error!!!
+	
 	SDstation(pos1,pos2,count,temprefPrn,lastDataBase,lastDataRover,sppinfobase,sppinforover,lastSdData);
 	//----------------------------------------------
 	
@@ -1317,6 +1318,7 @@ DdData Position::ComObsPhsCod(DdCtrl& ddctrl,DdObsInfo& ddobsinfo,DdAmbInfo& cur
 	DdData temp;
 	ComObsCod(ddctrl,temp,dddata,ddobsinfo);
 	ComObsPhs(ddctrl,temp,dddata,ddobsinfo,curambinfo);
+	curambinfo.refSate=dddata.refPrn;
 	return temp;
 }
 
@@ -1738,6 +1740,7 @@ void Position::FormDesMatIonoBDSErtk(math::matrix<double>& DesMatIono,DdData ddd
 			{
 				if(i==0) DesMatIono(cnt,cnt1)=-(freq1+4*SQ(freq1)/FREQ7_BDS-5*SQ(freq1)/FREQ6_BDS)/freqPhs[i];
 				if(i==1) DesMatIono(cnt,cnt1)=-(-SQ(freq1)/FREQ7_BDS+SQ(freq1)/FREQ6_BDS)/freqPhs[i];
+				if(i==2) DesMatIono(cnt,cnt1)=-1.0;
 				cnt++;
 				cnt1++;
 			}
@@ -2280,13 +2283,14 @@ DMatrix Position::FormWeightErtk(int singleFreqObsNum,double eleRefBase,double e
 			Qinit(j,i)=Qinit(i,j);
 		}
 	}
-
 	for (int i=0;i<singleFreqObsNum;i++)
 	{
 		Qinit(i,i)+=cofactor(eleRovRov[i],1)+cofactor(eleRovBase[i],1);
 	}
 	return Kronecker(CholeskyInv(initMat),CholeskyInv(Qinit),4);
 }
+
+
 
 DMatrix Position::FormWeightErtkNl(int numSinlge,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase)
 {
@@ -2296,13 +2300,19 @@ DMatrix Position::FormWeightErtkNl(int numSinlge,double eleRefBase,double eleRef
 	initMat(0,0)=SQ(lam1)*(SQ(coef1[0]/lam[0])+SQ(coef1[1]/lam[1])+SQ(coef1[2]/lam[2]));
 	initMat(1,1)=SQ(lam2)*(SQ(coef2[0]/lam[0])+SQ(coef2[1]/lam[1])+SQ(coef2[2]/lam[2]));
 	initMat(0,1)=initMat(1,0)=lam2*lam1*(coef1[0]*coef2[0]/SQ(lam[0])+coef1[1]*coef2[1]/SQ(lam[1])+coef1[2]*coef2[2]/SQ(lam[2]));
-	initMat(2,0)=initMat(0,3)=lam1/lam[0];
+	initMat(2,0)=initMat(0,2)=lam1/lam[0];
 	initMat(2,2)=1.0;
-	Qinit.Unit(); 
-	Qinit*=(cofactor(eleRefBase,1)+cofactor(eleRefRov,1));
 	for (int i=0;i<numSinlge;i++)
 	{
-		Qinit(i,i)+=(cofactor(eleRovRov[i],1)+cofactor(eleRovBase[i],1));
+		for(int j=i;j<numSinlge;j++)
+		{
+			Qinit(i,j)=cofactor(eleRefBase,1)+cofactor(eleRefRov,1);
+			Qinit(j,i)=Qinit(i,j);
+		}
+	}
+	for (int i=0;i<numSinlge;i++)
+	{
+		Qinit(i,i)+=cofactor(eleRovRov[i],1)+cofactor(eleRovBase[i],1);
 	}
 	return Kronecker(CholeskyInv(initMat),CholeskyInv(Qinit),4);
 }
@@ -2427,6 +2437,7 @@ void Position::ChangePredataByNewRef(DdData& predddata,int newRef)
 {
 	//DdData temp(predddata.pairNum);
 	DdData temp;
+	temp=predddata;
 	int index	=-1;
 	for (int i=0;i<predddata.pairNum;i++)
 	{
@@ -3741,7 +3752,20 @@ void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag
 
 }
 
-
+/*calculate the ionophere with ewl obs
+ *		curdata phs and cod unit meter
+ *		
+ */
+void IonoCalcWithEWL(DdData curdata)
+{
+	double Iono[32]={0};
+	double beta1=(FREQ2_BDS+4*SQ(FREQ2_BDS)/FREQ7_BDS-5*SQ(FREQ2_BDS)/FREQ6_BDS)/FREQ_EWL_BDS1,
+				beta2=(-SQ(FREQ2_BDS)/FREQ7_BDS+1*SQ(FREQ2_BDS)/FREQ6_BDS)/FREQ_EWL_BDS2;
+	for (int i=0;i<curdata.pairNum;i++)
+	{
+		Iono[i]=0;
+	}
+}
 
 static int ErtkModel=-1; /*0 =iono fix, 1 =iono float with EWL*/
 
@@ -3789,47 +3813,33 @@ DMatrix Position::ErtkBDS(DdData curData)
 		}
 	}
 
-	if (ErtkModel==1)
-	{
-		DMatrix N12=~DesPos*P*DesIono,N22=~DesIono*P*DesIono,U2=~DesIono*P*L,iota;
-		if(restAmb==0)SolveNormalEquationCholesky2(N11,N12,N22,U1,U2);
-		if (restAmb==1)
-		{
-			DMatrix N13=~DesPos*P*DesAmb,N23=~DesIono*P*DesAmb,
-						 N33=~DesAmb*P*DesAmb,U3=~DesAmb*P*DesAmb,
-						 invN33=CholeskyInv(N33);
-			N11=N11-N13*invN33*(~N13); 
-			N12=N12-N13*invN33*(~N23);
-			N22=N22-N23*invN33*(~N23);
-			SolveNormalEquationCholesky2(N11,N12,N22,U1,U2);
-		}
-		x_hat=U1;
-		iota=U2;
-	}
-
+	
 	if(!_finite(x_hat(0,0)))
 	{
 		restAmb=restAmb;
 	}
 
-	for(int i=0;i<3;i++) x_hat(i,0)+=curData.rovRecPos[i];
-	cout<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
-	fstream crdFile;
-	crdFile.open("CrdFile.txt",ios::app);
-	crdFile<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
-	crdFile.close();
+	if(_finite(x_hat(0,0))&&fabs(x_hat(0,0))<1000.0)
+	{
+		for(int i=0;i<3;i++) x_hat(i,0)+=curData.rovRecPos[i];
+		//cout<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
+		fstream crdFile;
+		crdFile.open("CrdFileFix.txt",ios::app);
+		crdFile<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
+		crdFile.close();
+	}
 	return x_hat;
 }
 
 DMatrix Position::ErtkBDSFloat(DdData curData)
 {
-	int numPhsType=2,numCodType=0;
+	int numPhsType=2,numCodType=2;
 	int numphs=0;
 	int numcod=0;
 	for (int i=0;i<numPhsType;i++) numphs+=curData.NoPhs(i);
 	for (int i=0;i<numCodType;i++) numcod+=curData.NoCod(i);
 	
-	int UnfixNum=AmbInfoSys.TotalUnfixNum(2);
+	int UnfixNum=AmbInfoSys.TotalUnfixNum(numPhsType);
 	int Unfix=(UnfixNum>0)?UnfixNum:1;
 	int row=numphs+numcod;
 	DMatrix DesPos(row,3),DesIono(row,row/(numCodType+numPhsType)),L(row,1),
@@ -3845,16 +3855,16 @@ DMatrix Position::ErtkBDSFloat(DdData curData)
 	if(numCodType!=0)
 	{
 		DMatrix Pcod=FormWeightSingleFreqPhs(numcod/numCodType,DdObsSys.eleRefBase,DdObsSys.eleRefRov,DdObsSys.eleRovBase,DdObsSys.eleRovRov);	
-		Pcod/=22500.0;
+		Pcod/=10000.0;
 		Pcod=DiagMatSym(Pcod,Pcod);
 		P=DiagMatSym(Pcod,P);
 	}
-	DMatrix a,b,c,d,e,f,g;
-	DMatrix N11=~DesPos*P*DesPos,U1=~DesPos*P*L,x_hat(3,1);
+
+	DMatrix N11=~DesPos*P*DesPos,U1=~DesPos*P*L,x_hat(3,1),iota;
 	ErtkModel=1;
 	if (ErtkModel==1)
 	{
-		DMatrix N12=~DesPos*P*DesIono,N22=~DesIono*P*DesIono,U2=~DesIono*P*L,iota;
+		DMatrix N12=~DesPos*P*DesIono,N22=~DesIono*P*DesIono,U2=~DesIono*P*L;
 		if(restAmb==0)SolveNormalEquationCholesky2(N11,N12,N22,U1,U2);
 		if (restAmb==1)
 		{
@@ -3867,63 +3877,163 @@ DMatrix Position::ErtkBDSFloat(DdData curData)
 			N22=N22-N23*invN33*(~N23);
 			U1=U1-N13*invN33*U3;
 			U2=U2-N23*invN33*U3;
-			a=N11;b=N12;c=N22;d=U1;e=U2;
-			f=invN33;g=N33;
+
 			SolveNormalEquationCholesky2(N11,N12,N22,U1,U2);
 		}
 		x_hat=U1;
 		iota=U2;
 	}
 
-	if(!_finite(x_hat(0,0)))
-	{
-	/*	fstream matFile;
-		matFile.open("matFile.txt",ios::out);
-		matFile<<setiosflags(ios::fixed)<<setprecision(10)<<setw(15)<<c<<endl;*/
-
-		cout<<CholeskyInv(c);
-		a=a-b*CholeskyInv(c)*~b;
-		d=d-b*CholeskyInv(c)*e;
-		cout<<CholeskyInv(a);
-		cout<<CholeskyInv(a)*d;
-		restAmb=restAmb;
-	}
-	if(_finite(x_hat(0,0)))
+	if(_finite(x_hat(0,0))&&fabs(x_hat(0,0))<1000.0)
 	{
 		for(int i=0;i<3;i++) x_hat(i,0)+=curData.rovRecPos[i];
-		cout<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
+		//cout<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
+		fstream IonoFile;
+		IonoFile.open("IonoFile.txt",ios::app);
+		IonoFile<<setiosflags(ios::fixed)<<setw(4)<<curData.pairNum<<endl;
+		for(int i=0;i<curData.pairNum;i++)
+			IonoFile<<setiosflags(ios::fixed)<<setw(3)<<curData.rovPrn[i]<<
+							setw(10)<<setprecision(6)<<iota(i,0)<<endl;
+		IonoFile.close();
+
 		fstream crdFile;
-		crdFile.open("CrdFile.txt",ios::app);
+		crdFile.open("CrdFileFloat.txt",ios::app);
 		crdFile<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
 		crdFile.close();
 	}
 	return x_hat;
 }
 
+static DMatrix Qaa,a;
+int epoch=0;
 /*phase order (EWL1,EWL2, N1) unit: m*/
-void Position::ErtkBDSWithNl(DdData curData,DdData preData)
+void Position::ErtkBDSWithNl(DdData curData)
 {
-	int numCod=0;
-	int numPhs=curData.SumPhs();//suppose NoPhs(0)=NoPhs(1)
-	DMatrix DesPos(numPhs,3),DesIono(numPhs,numPhs/3),L(numPhs,1),DesAmb,P(numPhs,numPhs);
-	FormDesMatPos(DesPos,L,curData,numCod,numPhs);
-	FormDesMatIono(DesIono,curData,numCod,numPhs,NULL,DdControl.freqPhs);
-	FormDesMatAmb(DesAmb,curData,numPhs,numCod,DdControl.freqPhs,AmbInfoSys);
-	FormResidual(L,curData,0,3);
-	ReFormConstWithAmb(L,AmbInfoSys,0,3,DdControl.freqPhs,curData);
-	P=FormWeightErtk(numPhs/3,DdObsSys.eleRefBase,DdObsSys.eleRefRov,DdObsSys.eleRovBase,DdObsSys.eleRovRov);
+	int numPhsType=3,numCodType=3;
+	int numphs=0;
+	int numcod=0;
+	for (int i=0;i<numPhsType;i++) numphs+=curData.NoPhs(i);
+	for (int i=0;i<numCodType;i++) numcod+=curData.NoCod(i);
 
-	DMatrix N11=~DesPos*P*DesPos,U1=~DesPos*P*L,x_hat(3,1);
-	DMatrix N12=~DesPos*P*DesIono,N22=~DesIono*P*DesIono,U2=~DesIono*P*L,iota;
-	
+	int UnfixNum=AmbInfoSys.TotalUnfixNum(numPhsType);
+	int Unfix=(UnfixNum>0)?UnfixNum:1;
+	int row=numphs+numcod;
+	DMatrix DesPos(row,3),DesIono(row,row/(numCodType+numPhsType)),L(row,1),
+		DesAmb(row,Unfix),P(numphs,numphs);
+	FormDesMatPos(DesPos,L,curData,numCodType,numPhsType);
+	FormDesMatIonoBDSErtk(DesIono,curData,numCodType,numPhsType,DdControl.freqCod,DdControl.freqPhs);
 
-
-	if (ErtkModel==1)
+	int restAmb=0;
+	restAmb=FormDesMatAmb(DesAmb,curData,numPhsType,numcod,DdControl.freqPhs,AmbInfoSys);
+	FormResidual(L,curData,numCodType,numPhsType);
+	ReFormConstWithAmb(L,AmbInfoSys,numcod,numPhsType,DdControl.freqPhs,curData);
+	P=FormWeightErtkNl(numphs/numPhsType,DdObsSys.eleRefBase,DdObsSys.eleRefRov,DdObsSys.eleRovBase,DdObsSys.eleRovRov);
+	if(numCodType!=0)
 	{
-		DMatrix N12=~DesPos*P*DesIono,N22=~DesIono*P*DesIono,U2=~DesIono*P*L,iota;
-		SolveNormalEquationCholesky2(N11,N12,N22,U1,U2);
-		x_hat=U1;
-		iota=U2;
+		DMatrix Pcod=FormWeightSingleFreqPhs(numcod/numCodType,DdObsSys.eleRefBase,DdObsSys.eleRefRov,DdObsSys.eleRovBase,DdObsSys.eleRovRov);	
+		Pcod/=10000.0;
+		DMatrix Ps=Pcod;
+		if(numCodType>=2) Pcod=DiagMatSym(Ps,Ps);
+		if(numCodType==3) Pcod=DiagMatSym(Pcod,Ps);
+		P=DiagMatSym(Pcod,P);
 	}
+	DMatrix N11=~DesPos*P*DesPos,U1=~DesPos*P*L,x_hat(3,1),a_hat;
+	ErtkModel=2;
+	if (ErtkModel==2)
+	{
+		DMatrix N12=~DesPos*P*DesAmb,N22=~DesAmb*P*DesAmb,U2=~DesAmb*P*L,
+			         N13=~DesPos*P*DesIono,N33=~DesIono*P*DesIono,N23=~DesAmb*P*DesIono,
+					 U3=~DesIono*P*L;
 
+		if(restAmb==0)
+		{
+			SolveNormalEquationCholesky2(N11,N13,N33,U1,U3);
+		}
+		if (restAmb==1)
+		{
+			DMatrix invN33=CholeskyInv(N33);
+			N11=N11-N13*invN33*(~N13); 
+			N12=N12-N13*invN33*(~N23);
+			N22=N22-N23*invN33*(~N23);
+			U1=U1-N13*invN33*U3;
+			U2=U2-N23*invN33*U3;
+
+			SolveNormalEquationCholesky2(N11,N12,N22,U1,U2);
+		}
+		x_hat=U1;
+		a_hat=U2;
+		if(epoch==0) 
+		{
+			if(UnfixNum>curData.pairNum)
+			{
+				Qaa=GetBlockMat(N22,UnfixNum-curData.pairNum+1,UnfixNum,UnfixNum-curData.pairNum+1,UnfixNum,1);
+				a=GetBlockMat(a_hat,UnfixNum-curData.pairNum+1,UnfixNum,1,1,2);
+			}
+			if(UnfixNum==curData.pairNum)
+			{
+				Qaa=N22;
+				a=a_hat;
+			}
+				
+		}
+		else
+		{
+			DMatrix Qtaa,at_hat;
+			if(UnfixNum>curData.pairNum)
+			{
+				Qtaa=GetBlockMat(N22,UnfixNum-curData.pairNum+1,UnfixNum,UnfixNum-curData.pairNum+1,UnfixNum,1);
+				at_hat=GetBlockMat(a_hat,UnfixNum-curData.pairNum+1,UnfixNum,1,1,2);
+			}
+			if(UnfixNum==curData.pairNum)
+			{
+				Qtaa=N22;
+				at_hat=a_hat;
+			}
+			if (UnfixNum>=3)
+			{
+				/*a=a+Qaa*CholeskyInv(Qaa+Qtaa)*(at_hat-a);
+				Qaa=Qaa-Qaa*CholeskyInv(Qaa+Qtaa)*Qaa;*/
+				a=at_hat;Qaa=Qtaa;
+			}
+
+		}
+		double ratio=0.0;
+		if (UnfixNum>=5)
+		{
+			Ambiguity ar;
+			double s[2]={0,0};DMatrix F(a.RowNo(),2);
+			ar.Lambda(a.RowNo(),2,a,Qaa,F,s);
+			ratio=s[1]/s[0];
+			if(ratio>1.5) 
+			{
+				for (int i=0;i<curData.pairNum;i++) 
+				{
+					AmbInfoSys.fixFlag[2][i]=1;
+					AmbInfoSys.fixSolu[2][i]=F(i,0);
+					AmbInfoSys.prnList[2][i]=curData.rovPrn[i];
+				}
+			}
+				
+			cout<<"  ratio   "<<ratio<<"   ";
+		}
+		
+
+	}
+	if(_finite(x_hat(0,0))&&fabs(x_hat(0,0))<1000.0)
+	{
+		for(int i=0;i<3;i++) x_hat(i,0)+=curData.rovRecPos[i];
+		//cout<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
+		
+
+		fstream crdFile;
+		crdFile.open("CrdFileFloatNL.txt",ios::app);
+		crdFile<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
+		crdFile.close();
+	}
+	epoch++;
+}
+
+extern  void ambNL(DdAmbInfo & ambinfo)
+{
+	ambinfo=AmbInfoSys;
 }

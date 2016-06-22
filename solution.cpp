@@ -74,7 +74,7 @@ void SolveNormalEquationCholesky2(math::matrix<double>& N1,math::matrix<double>&
 	U1=SolveUpperEquation2(N1,U1-N12*U2,paraNum1);
 
 	N2=InvLowTri(N2,N2.ColNo());  //inv(L22)
-	N2=MultiplyselfUpperLower(N2,ColU2);  //inv(N2)=Qaa
+	N2=MultiplyselfUpperLower(N2,ColU2);  //inv(N2)=Q22
 }
 
 void SolveNormalEquationCholesky2(math::matrix<double>& N1,math::matrix<double>& N12,math::matrix<double>& N2,math::matrix<double>& U1,math::matrix<double>& U2)

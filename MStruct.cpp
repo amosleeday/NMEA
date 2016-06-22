@@ -1940,7 +1940,7 @@ int DdAmbInfo::FindSat( int ind,int prn )
 	int pos=-1;
 	for (int i=0;i<MAXNUMSATE;i++)
 	{
-		if (prnList[ind][i]=prn)
+		if (prnList[ind][i]==prn)
 		{
 			pos=i;
 			break;

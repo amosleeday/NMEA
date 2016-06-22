@@ -913,9 +913,10 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 			int refPrn=0;
 			ddobsinfo.ZeroElem();
 			
-			/*set prnPrevious=0, solve by epoch*/
-			prnPreviuos=0;
-
+			/*set prnPrevious=0 and is_initRTKDone==0;, solve by epoch*/
+			prnPreviuos=203;
+			is_initRTKDone=1;
+			/*set is_initRTKDone=1 and prnPreviuos=XXX, fix the refsat*/
 			/*get the ddobsinfo[elev ]*/
 			refPrn=spp.SelectRefSate(baseInfo,sppinfo,5.0,baseData,roverData,lastSdData,ddobsinfo,is_initRTKDone,prnPreviuos);
 			if (refPrn!=208)
@@ -934,7 +935,7 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 
 			cout<<t1<<" "<<t2<<" "<<t3<<" "<<dddataCurr.pairNum<<"  "<<setw(8)<<nEpoch<<setw(5)<<refPrn;
 			cout<<endl;
-			/*      modify the shell*/
+			
 
 
 			dddataCurr.ZeroElem(); ambinfo.ZeroElem();
@@ -943,6 +944,7 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 			/*int indPreRefInCur=FindPosInt(dddataCurr.rovPrn,dddataCurr.pairNum,prnPreviuos);
 			indPreRefInCur=(dddataCurr.refPrn==prnPreviuos)?0:-1;*/
 //			if(indPreRefInCur==-1&&nEpoch>1)continue;
+			if(refPrn<200||refPrn>250) continue;
 			if (prnPreviuos!=0&&prnPreviuos!=refPrn/*&&indPreRefInCur!=-1*/) 
 			{
 				spp.ChangePredataByNewRef(dddataPre,refPrn);
@@ -961,25 +963,18 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 			if (nEpoch>1) spp.PassPreAmb(preambinfo,ambinfo,ddctrl.PhsTypeNo());
 
 			spp.GetEWLAmbBDS(ambinfo.fixSolu[0],ambinfo.fixSolu[1],ambinfo.fixFlag[0],ambinfo.fixFlag[1],0.20,dddataPre);
-			
-			
-			
-			
-			/* -----------------------------------------end cycle slip---------------------------------------- */
-
-			
+						
 			EqualObsInfo(ddobsinfo); EqualAmbInfo(ambinfo); EqualCtrl(ddctrl);
 
 			//spp.ErtkBDS(dddataCurr);
-			spp.ErtkBDSFloat(dddataCurr);
+			//spp.ErtkBDSFloat(dddataCurr);
+			spp.ErtkBDSWithNl(dddataCurr);
 
+			ambNL(ambinfo);
 			preddobsinfo=ddobsinfo;
 			preambinfo=ambinfo;
 
-			
-
 			//cout<<endl;
-			/*	end equation part	*/
 		}
 		else
 		{

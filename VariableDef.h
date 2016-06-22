@@ -88,6 +88,12 @@
 #define FREQ7_BDS			1.20714E9           /* BeiDou B2 frequency (Hz) */
 #define FREQ6_BDS			1.26852E9           /* BeiDou B3 frequency (Hz) */
 
+#define FREQ_EWL_BDS1  (1*FREQ2_BDS+4*FREQ7_BDS-5*FREQ6_BDS)  /* frequency BDS EWL[1,4,-5] */
+#define FREQ_EWL_BDS2  (-*FREQ7_BDS+FREQ6_BDS)  /* frequency BDS EWL[0,-1,1] */
+#define MU_EWL_BDS1		((FREQ2_BDS+))
+
+
+
 #define FREQ1RATIO			1.57542           /* L1/E1  frequency (Hz) */
 #define FREQ2RATIO			1.22760           /* L2     frequency (Hz) */
 #define FREQ5RATIO			1.17645           /* L5/E5a frequency (Hz) */
@@ -102,6 +108,13 @@
 #define FREQ2_BDSRATIO   1.561098          /* BeiDou B1 frequency (Hz) */
 #define FREQ7_BDSRATIO   1.20714           /* BeiDou B2 frequency (Hz) */
 #define FREQ6_BDSRATIO   1.26852           /* BeiDou B3 frequency (Hz) */
+
+#define FREQ_EWL_BDS1  (1*FREQ2_BDS+4*FREQ7_BDS-5*FREQ6_BDS)  /* frequency BDS EWL[1,4,-5] */
+#define FREQ_EWL_BDS2  (-FREQ7_BDS+FREQ6_BDS)  /* frequency BDS EWL[0,-1,1] */
+
+#define LAMBDA_EWL_BDS1 (CLIGHT/FREQ_EWL_BDS1)
+#define LAMBDA_EWL_BDS2 (CLIGHT/FREQ_EWL_BDS2)                                                                                                                                   
+
 
 #define  MAXSATERISE			10					/* the max of rising number*/
 #define  MAXSATEFALL			10					/* the max of falling number*/

@@ -111,7 +111,7 @@ public:
 	 void GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag2, double threshold,DdData curData );
 	 DMatrix FormWeightErtk(int numSinlge,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase);
 	 DMatrix FormWeightErtkNl(int numSinlge,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase);
-	 void ErtkBDSWithNl(DdData curData,DdData preData);
+	 void ErtkBDSWithNl(DdData curData);
 	 void CycleSlipDetectionBDSTriple(double thresGF,double thresMW,DdData& curData,DdData preData);
 	 DMatrix FormWeightSingleFreqPhs(int singleFreqObsNum,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase);
 	 DMatrix ErtkBDSFloat(DdData curData);
@@ -121,3 +121,4 @@ public:
 extern void EqualAmbInfo(DdAmbInfo ambinfo);
 extern void EqualObsInfo(DdObsInfo obsinfo);
 extern void EqualCtrl(DdCtrl dc);
+extern void ambNL(DdAmbInfo & ambinfo);
