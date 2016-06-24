@@ -30,6 +30,13 @@ void EqualCtrl(DdCtrl dc)
 	DdControl=dc;
 }
 
+
+/*NL ambiguity will be fixed in this part*/
+extern  void deliverInsideAmbInfo(DdAmbInfo & ambinfo)
+{
+	ambinfo=AmbInfoSys;
+}
+
 /*
  *get next epoch data
  *I:
@@ -3703,11 +3710,14 @@ void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag
 
 	double lam14_5=CLIGHT/CombFreq(sysid,coef14_5);
 	double lam0_11=CLIGHT/CombFreq(sysid,coef0_11);
-	
+	fstream fracEwl;
+	/*fracEwl.open("FracFile.txt",ios::app);
+	fracEwl<<setiosflags(ios::fixed)<<setprecision(2)<<setw(10)<<curData.sec<<setw(4)<<curData.pairNum<<endl;*/
 	for (int i=0;i<curData.pairNum;i++)
 	{
 		if (curData.datarecord[i].numVadCod+curData.datarecord[i].numVadPhs>=6)
 		{
+			
 			int flag=Sum(curData.datarecord[i].isCycleSlip,3);
 			if(flag) fixflag1[i]=0;
 			double frac,ewlInt;
@@ -3717,7 +3727,7 @@ void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag
 				P110	=CombObs(sysid,coef110,curData.datarecord[i].PsRange);
 				ewl1[i]=(P110-Phi14_5)/lam14_5;
 				ewlInt=ROUND(ewl1[i]);
-
+			//	fracEwl<<setiosflags(ios::fixed)<<setw(4)<<curData.rovPrn[i]<<setprecision(5)<<setw(8)<<ewlInt-ewl1[i];
 				if((frac=fabs(ewlInt-ewl1[i]))<threshold)
 				{
 					ewl1[i]=ewlInt;
@@ -3735,7 +3745,7 @@ void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag
 				P011	=CombObs(sysid,coef011,curData.datarecord[i].PsRange);
 				ewl2[i]=(P011-Phi0_11)/lam0_11;
 				ewlInt=ROUND(ewl2[i]);
-
+			//	fracEwl<<setiosflags(ios::fixed)<<setprecision(5)<<setw(8)<<ewlInt-ewl2[i]<<endl;
 				if((frac=fabs(ewlInt-ewl2[i]))<threshold)
 				{
 					ewl2[i]=ewlInt;
@@ -3749,7 +3759,7 @@ void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag
 		}
 
 	}
-
+//	fracEwl.close();
 }
 
 /*calculate the ionophere with ewl obs
@@ -4012,7 +4022,7 @@ void Position::ErtkBDSWithNl(DdData curData)
 					AmbInfoSys.fixSolu[2][i]=F(i,0);
 					AmbInfoSys.prnList[2][i]=curData.rovPrn[i];
 				}
-			}
+			} 
 				
 			cout<<"  ratio   "<<ratio<<"   ";
 		}
@@ -4033,7 +4043,60 @@ void Position::ErtkBDSWithNl(DdData curData)
 	epoch++;
 }
 
-extern  void ambNL(DdAmbInfo & ambinfo)
+
+const int NumSatBDS=16;
+const int WindowMax=200;
+static int epochCnt[NumSatBDS]={0};
+static double EwlCheckObs1[NumSatBDS][WindowMax]={0.0};
+static double EwlCheckObs2[NumSatBDS][WindowMax]={0.0};
+static double LcB1B2[NumSatBDS][WindowMax]={0.0};
+
+/* smooth ewl obs with lc 
+ *	I:
+ *		curdata phase uint: meter
+ **/
+void Position::IonoSmooth(DdData& curdata,DdData curdataCycle)
 {
-	ambinfo=AmbInfoSys;
+	double K=(SQ(FREQ2_BDS)-SQ(FREQ7_BDS));
+	for (int i=0;i<curdata.pairNum;i++)
+	{
+		int pos=FindPosInt(AmbInfoSys.prnList[0],curdata.pairNum,curdata.rovPrn[i]);
+		int prn=curdata.rovPrn[i]-200;
+		if (curdata.datarecord[i].isCycleSlip[0]==1)
+		{
+			epochCnt[prn-1]=0;
+			for(int j=0;j<WindowMax;j++)EwlCheckObs1[prn-1][j]=EwlCheckObs2[prn-1][j]=LcB1B2[prn-1][j]=0.0;
+		}
+		
+		if (AmbInfoSys.fixFlag[0][pos]*AmbInfoSys.fixFlag[1][pos]==1)
+		{
+			double beta1=BETA_BDS1,beta2=BETA_BDS2;
+			double check_ewl1=curdata.datarecord[i].Phase[0]+AmbInfoSys.fixSolu[0][pos]*(CLIGHT/FREQ_EWL_BDS1);
+			double check_ewl2=curdata.datarecord[i].Phase[1]+AmbInfoSys.fixSolu[1][pos]*(CLIGHT/FREQ_EWL_BDS2);
+			double dIono=(check_ewl2-check_ewl1)/(beta1-beta2);
+			check_ewl1+=beta1*dIono;
+			check_ewl2+=beta2*dIono;
+			double lc=(curdataCycle.datarecord[i].Phase[0]*CLIGHT*FREQ2_BDS-curdataCycle.datarecord[i].Phase[1]*CLIGHT*FREQ7_BDS)/K;
+			if (epochCnt[prn-1]==WindowMax)
+			{
+				ReSetPtrWithElem(EwlCheckObs1[prn-1],check_ewl1,WindowMax);
+				ReSetPtrWithElem(EwlCheckObs2[prn-1],check_ewl2,WindowMax);
+				ReSetPtrWithElem(LcB1B2[prn-1],lc,WindowMax);
+			}
+			else
+			{
+				EwlCheckObs1[prn-1][epochCnt[prn-1]]=check_ewl1;
+				EwlCheckObs2[prn-1][epochCnt[prn-1]]=check_ewl2;
+				LcB1B2[prn-1][epochCnt[prn-1]]=lc;
+				epochCnt[prn-1]++;
+			}
+			double num=(double)epochCnt[prn-1];
+			double s=(lc-Mean(LcB1B2[prn-1],epochCnt[prn-1]-1));
+			double Smth1=	Mean(EwlCheckObs1[prn-1],epochCnt[prn-1])+(num-1)/num*s-AmbInfoSys.fixSolu[0][pos]*(CLIGHT/FREQ_EWL_BDS1);	
+			double Smth2=	Mean(EwlCheckObs2[prn-1],epochCnt[prn-1])+(num-1)/num*s-AmbInfoSys.fixSolu[1][pos]*(CLIGHT/FREQ_EWL_BDS2);
+			curdata.datarecord[i].Phase[0]=Smth1;
+			curdata.datarecord[i].Phase[1]=Smth2;
+		}
+		
+	}
 }

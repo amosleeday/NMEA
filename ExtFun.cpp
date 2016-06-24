@@ -2038,6 +2038,20 @@ extern double	Std(double* a,int num)
 	}
 	return sqrt(b);
 }
+/*
+ *ptr[0],ptr[1],...,ptr[Len-1]-->ptr[1],ptr[2],...,ptr[Len-1],tar
+ *return ptr[0]
+ */
+extern double ReSetPtrWithElem(double* ptr,double tar,int Len)
+{
+	double s=ptr[0];
+	for (int i=0;i<Len-1;i++)
+	{
+		ptr[i]=ptr[i+1];
+	}
+	ptr[Len-1]=tar;
+	return s;
+}
 
 extern double Rms(double*a,double t,int num )
 {

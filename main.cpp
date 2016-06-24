@@ -917,6 +917,20 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 			prnPreviuos=203;
 			is_initRTKDone=1;
 			/*set is_initRTKDone=1 and prnPreviuos=XXX, fix the refsat*/
+			
+			fstream distFile;
+			distFile.open("distAzi.txt",ios::app);
+			distFile<<setiosflags(ios::fixed)<<setw(4)<<baseInfo.validnum<<endl;;
+			double dist[3];
+			for (int i=0;i<baseInfo.validnum;i++)
+			{
+				for(int j=0;j<3;j++)dist[j]=baseInfo.recPos[j]-baseInfo.satePos[i].sateXYZ[j];
+				distFile<<setiosflags(ios::fixed)<<setw(4)<<baseInfo.prnList[i]<<setw(14)<<setprecision(3)
+					<<Norm(dist,3)*cos(baseInfo.ele[i])<<setw(14)<<setprecision(8)<<baseInfo.azi[i]<<setw(14)<<setprecision(8)<<baseInfo.ele[i]*R2D
+					<<endl;
+			}
+			distFile.close();
+			continue;
 			/*get the ddobsinfo[elev ]*/
 			refPrn=spp.SelectRefSate(baseInfo,sppinfo,5.0,baseData,roverData,lastSdData,ddobsinfo,is_initRTKDone,prnPreviuos);
 			if (refPrn!=208)
@@ -962,15 +976,19 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 			dddataCurr=spp.ComObsPhsCod(ddctrl,ddobsinfo,ambinfo,dddataPre);
 			if (nEpoch>1) spp.PassPreAmb(preambinfo,ambinfo,ddctrl.PhsTypeNo());
 
+
+
 			spp.GetEWLAmbBDS(ambinfo.fixSolu[0],ambinfo.fixSolu[1],ambinfo.fixFlag[0],ambinfo.fixFlag[1],0.20,dddataPre);
 						
 			EqualObsInfo(ddobsinfo); EqualAmbInfo(ambinfo); EqualCtrl(ddctrl);
+			continue;
+			//spp.IonoSmooth(dddataCurr,dddataPre);
 
-			//spp.ErtkBDS(dddataCurr);
+			spp.ErtkBDS(dddataCurr);
 			//spp.ErtkBDSFloat(dddataCurr);
-			spp.ErtkBDSWithNl(dddataCurr);
+			//spp.ErtkBDSWithNl(dddataCurr);
 
-			ambNL(ambinfo);
+			deliverInsideAmbInfo(ambinfo);
 			preddobsinfo=ddobsinfo;
 			preambinfo=ambinfo;
 

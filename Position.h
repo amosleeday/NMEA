@@ -116,9 +116,10 @@ public:
 	 DMatrix FormWeightSingleFreqPhs(int singleFreqObsNum,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase);
 	 DMatrix ErtkBDSFloat(DdData curData);
 	 void FormDesMatIonoBDSErtk(math::matrix<double>& DesMatIono,DdData dddata,int numCodType,int numPhsType,double* freqCod,double* freqPhs);
+	 void IonoSmooth(DdData& curdata,DdData curdataCycle);
 };
 
 extern void EqualAmbInfo(DdAmbInfo ambinfo);
 extern void EqualObsInfo(DdObsInfo obsinfo);
 extern void EqualCtrl(DdCtrl dc);
-extern void ambNL(DdAmbInfo & ambinfo);
+extern void deliverInsideAmbInfo(DdAmbInfo & ambinfo);

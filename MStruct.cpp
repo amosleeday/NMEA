@@ -1128,7 +1128,8 @@ ObsEpochData& ObsEpochData::Shrink()
 	temp.sec=sec;
 	temp.week=week;
 	temp.flag=flag;
-	return temp;
+	*this=temp;
+	return *this;
 }
 
 /*this function is for QXWZ company,
@@ -2070,8 +2071,8 @@ DdAmbInfo& DdAmbInfo::Update( DdData curdata )
 		}
 
 	}
-	
-	return minfo;
+	*this=minfo;
+	return *this;
 }
 
 

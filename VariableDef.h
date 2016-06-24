@@ -35,7 +35,7 @@
 
 #define RE_CGCS2000		6378137.0						//	the parameters of BDS and GAL are same,see reference
 #define FE_CGCS2000		(1.0/298.257222101)
-#define OMEGAE_BDS		7.2921151467E-5			//earth angular velocity BDS
+#define OMEGAE_BDS		7.292115E-5			//earth angular velocity BDS
 #define GM_BDS				3.986004418E14			//
 #define ee_BDS					0.006694380022901	
 
@@ -88,9 +88,8 @@
 #define FREQ7_BDS			1.20714E9           /* BeiDou B2 frequency (Hz) */
 #define FREQ6_BDS			1.26852E9           /* BeiDou B3 frequency (Hz) */
 
-#define FREQ_EWL_BDS1  (1*FREQ2_BDS+4*FREQ7_BDS-5*FREQ6_BDS)  /* frequency BDS EWL[1,4,-5] */
-#define FREQ_EWL_BDS2  (-*FREQ7_BDS+FREQ6_BDS)  /* frequency BDS EWL[0,-1,1] */
-#define MU_EWL_BDS1		((FREQ2_BDS+))
+
+//#define MU_EWL_BDS1		((FREQ2_BDS+))
 
 
 
@@ -112,9 +111,10 @@
 #define FREQ_EWL_BDS1  (1*FREQ2_BDS+4*FREQ7_BDS-5*FREQ6_BDS)  /* frequency BDS EWL[1,4,-5] */
 #define FREQ_EWL_BDS2  (-FREQ7_BDS+FREQ6_BDS)  /* frequency BDS EWL[0,-1,1] */
 
-#define LAMBDA_EWL_BDS1 (CLIGHT/FREQ_EWL_BDS1)
-#define LAMBDA_EWL_BDS2 (CLIGHT/FREQ_EWL_BDS2)                                                                                                                                   
-
+#define LAMBDA_EWL_BDS1		(CLIGHT/FREQ_EWL_BDS1)
+#define LAMBDA_EWL_BDS2		(CLIGHT/FREQ_EWL_BDS2)                                                                                                                                   
+#define BETA_BDS1					(FREQ2_BDS/FREQ_EWL_BDS1*(1+4*FREQ2_BDSRATIO/FREQ7_BDSRATIO-5*FREQ2_BDSRATIO/FREQ6_BDSRATIO))
+#define BETA_BDS2					(FREQ2_BDS/FREQ_EWL_BDS2*(-FREQ2_BDSRATIO/FREQ7_BDSRATIO+FREQ2_BDSRATIO/FREQ6_BDSRATIO))
 
 #define  MAXSATERISE			10					/* the max of rising number*/
 #define  MAXSATEFALL			10					/* the max of falling number*/

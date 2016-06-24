@@ -203,3 +203,4 @@ extern double CombObsCycle(int sysid,int* coef,double* threeobs);
 extern int AbsIndMinInd(double* a,int num);
 extern double LCD(int a,int b);
 extern double LCM(int a,int b);
+extern double ReSetPtrWithElem(double* ptr,double tar,int Len);
