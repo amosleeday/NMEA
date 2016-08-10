@@ -789,7 +789,7 @@
 ////////////////////////////////////////////// 
 /*
 
-	this file defines all the structs of class used
+this file defines all the structs of class used
 */
 
 
@@ -810,7 +810,7 @@ const static double bdt0 []={2006,1, 1,0,0,0}; /* beidou time reference */
 tests::tests()
 {
 	alpha=NULL;
-	
+
 	beta= NULL;
 }
 
@@ -863,11 +863,11 @@ BroadEphHeader::BroadEphHeader()
 }
 
 /*
-	 the parameters of ionosphere correction
-	 default:
-			validA=0;
-			validB=0;
-			1=valid; 0=invalid
+the parameters of ionosphere correction
+default:
+validA=0;
+validB=0;
+1=valid; 0=invalid
 */
 BroadEphIonoCorr::BroadEphIonoCorr()
 {
@@ -900,13 +900,13 @@ BroadEphIonoCorr& BroadEphIonoCorr::operator=(const BroadEphIonoCorr& m)
 
 BroadTimeCorr::BroadTimeCorr()
 {	// GPUT =GPS to UTC a0,a1
-			valid=0;
-			transTimeType=0; // 0 : no time corr in the eph-file 
-			a0=0.0;
-			a1=0.0;
-			refTime=0;
-			refWeek=0;
-	}
+	valid=0;
+	transTimeType=0; // 0 : no time corr in the eph-file 
+	a0=0.0;
+	a1=0.0;
+	refTime=0;
+	refWeek=0;
+}
 
 BroadEphData::BroadEphData()
 {
@@ -950,29 +950,29 @@ BroadEphData::BroadEphData()
 ObsHeader::ObsHeader()
 {
 
-			version=0.0;
-			sysid=0;
-			interval=1.0;
-			for (int i=0;i<3;i++)
-			{
-				appPos[i]=0.0;
-				HEN[i]=0.0;
-			}
+	version=0.0;
+	sysid=0;
+	interval=1.0;
+	for (int i=0;i<3;i++)
+	{
+		appPos[i]=0.0;
+		HEN[i]=0.0;
+	}
 }
 
 ObsType2::ObsType2()
 {
 
-		sysid=0;
-		sysNum=0;
-		typeNum=0;
-	}
+	sysid=0;
+	sysNum=0;
+	typeNum=0;
+}
 ObsType3::ObsType3()
-	{
+{
 
-		sysid=0;
-		typeNum=0;
-	}
+	sysid=0;
+	typeNum=0;
+}
 SingleObsType::SingleObsType()
 {	//2.x and 3.x
 
@@ -980,7 +980,7 @@ SingleObsType::SingleObsType()
 	obsCode="F";// F is failure
 	freCode=0;
 	channel="F";//for 3.x
-	}
+}
 
 SecWeek::SecWeek()
 {
@@ -1050,7 +1050,7 @@ ObsEpochData::ObsEpochData()
 	flag=0;
 	week=0;
 	sec=0.0;
-//	obsdatarecord=NULL;
+	//	obsdatarecord=NULL;
 }
 
 
@@ -1132,10 +1132,22 @@ ObsEpochData& ObsEpochData::Shrink()
 	return *this;
 }
 
+ObsEpochData& ObsEpochData::RemovePrn( int Prn )
+{
+	for (int i=0;i<MAXNUMSATE;i++)
+	{
+		if (obsdatarecord[i].PRN==Prn)
+		{
+			obsdatarecord[i].PRN=0;
+		}
+	}
+	return Shrink();
+}
+
 /*this function is for QXWZ company,
- *
- *extract the obs that are less than the required types(typeNo) 
- */
+*
+*extract the obs that are less than the required types(typeNo) 
+*/
 ObsEpochData& ObsEpochData::AutoShrink(int typeNo )
 {
 	int num=typeNo;
@@ -1169,6 +1181,8 @@ void ObsEpochData::Cycle2MeterGlo(int* dNum)
 
 
 
+
+
 //ObsEpochData::~ObsEpochData()
 //{
 //	delete[] obsdatarecord;
@@ -1179,10 +1193,10 @@ void ObsEpochData::Cycle2MeterGlo(int* dNum)
 void Gtime::weeksec(int& Week,double& Second,YMDHMS gnsstime,int sysid)
 {
 	//返回值为GPS周秒
-	
+
 	int y;
-	
-    int m;
+
+	int m;
 	if(gnsstime.mon<=2)
 	{
 		y=gnsstime.year-1;
@@ -1196,58 +1210,58 @@ void Gtime::weeksec(int& Week,double& Second,YMDHMS gnsstime,int sysid)
 	double JD;
 	JD=((int)(365.25*y))+((int)(30.6001*(m+1.0)))+gnsstime.day+gnsstime.hour/24.0+1720981.5;
 	int weekday=(((int)(JD+0.5))%7);//计算结果中0代表星期一，1代表星期二
-	 weekday++;
-	 if (weekday==7)
-	 {
-		 weekday=0;
-	 }
-	 Second=(weekday*24.0+(double)gnsstime.hour)*3600.0+(double)gnsstime.min*60.0+gnsstime.sec;
-	 Week=(int)((JD-2444244.5)/7.0);
+	weekday++;
+	if (weekday==7)
+	{
+		weekday=0;
+	}
+	Second=(weekday*24.0+(double)gnsstime.hour)*3600.0+(double)gnsstime.min*60.0+gnsstime.sec;
+	Week=(int)((JD-2444244.5)/7.0);
 }
 void Gtime::ymdhms(int Week,double Sec,YMDHMS& gnsstime)
 {
-	 double MJD = Week*7.0+44244.0+Sec/3600.0/24.0;  //modified julian day
-	 int a   =(int)(MJD +0.5+0.5+1.0e-10)+2400000;
-	 double FRAC=MJD +0.5+2400000.5-a;
-	 int b = a + 1537;
-	 int Cc = (int)((b - 122.1)/365.25 + 1.0e-10);
-	 int d = (int)(365.25*Cc+1.0e-16);
-	 int Ee = (int)((b-d)/30.6001 + 1.0e-10);
-	 gnsstime.day=b-d-(int)(30.6001*Ee);
-	 gnsstime.mon=Ee-1-12*((int)(Ee/14.0+1.0e-10));
-	 gnsstime.year=Cc - 4715 -(int)((7.0+gnsstime.mon)/10.0 + 1.0e-10);
-	 double TmHour = FRAC*24.0;
-	 gnsstime.hour= (int)(TmHour + 1.0e-10);
-	 double TmMin=(TmHour-gnsstime.hour)*60;
-	 gnsstime.min=(int)(TmMin+1.0e-10);
-	 gnsstime.sec= (TmMin-gnsstime.min)*60.0;	
+	double MJD = Week*7.0+44244.0+Sec/3600.0/24.0;  //modified julian day
+	int a   =(int)(MJD +0.5+0.5+1.0e-10)+2400000;
+	double FRAC=MJD +0.5+2400000.5-a;
+	int b = a + 1537;
+	int Cc = (int)((b - 122.1)/365.25 + 1.0e-10);
+	int d = (int)(365.25*Cc+1.0e-16);
+	int Ee = (int)((b-d)/30.6001 + 1.0e-10);
+	gnsstime.day=b-d-(int)(30.6001*Ee);
+	gnsstime.mon=Ee-1-12*((int)(Ee/14.0+1.0e-10));
+	gnsstime.year=Cc - 4715 -(int)((7.0+gnsstime.mon)/10.0 + 1.0e-10);
+	double TmHour = FRAC*24.0;
+	gnsstime.hour= (int)(TmHour + 1.0e-10);
+	double TmMin=(TmHour-gnsstime.hour)*60;
+	gnsstime.min=(int)(TmMin+1.0e-10);
+	gnsstime.sec= (TmMin-gnsstime.min)*60.0;	
 }
 void Gtime::doy(int Year,int Month,int Day,int& YearofDOY,int& DayofYear)
-	{
-		int DayNums[12];
-	 DayNums[0]=31;
-	 DayNums[2]=31;
-	 DayNums[4]=31;
-	 DayNums[6]=31;
-	 DayNums[7]=31;
-	 DayNums[9]=31;
-	 DayNums[11]=31;
-	 DayNums[3]=30;
-	 DayNums[5]=30;
-	 DayNums[8]=30;
-	 DayNums[10]=30;
+{
+	int DayNums[12];
+	DayNums[0]=31;
+	DayNums[2]=31;
+	DayNums[4]=31;
+	DayNums[6]=31;
+	DayNums[7]=31;
+	DayNums[9]=31;
+	DayNums[11]=31;
+	DayNums[3]=30;
+	DayNums[5]=30;
+	DayNums[8]=30;
+	DayNums[10]=30;
 
-	 if ((Year%400==0) || (Year%4==0 && Year%100!=0))
-		 DayNums[1]=29;
-	 else
-		 DayNums[1]=28;
-	 DayofYear=0;
-	 for (int i=0;i<Month-1;i++)
-		  DayofYear+=DayNums[i];
-	 DayofYear+=Day;
+	if ((Year%400==0) || (Year%4==0 && Year%100!=0))
+		DayNums[1]=29;
+	else
+		DayNums[1]=28;
+	DayofYear=0;
+	for (int i=0;i<Month-1;i++)
+		DayofYear+=DayNums[i];
+	DayofYear+=Day;
 
-	 YearofDOY=Year;
-	}
+	YearofDOY=Year;
+}
 
 
 
@@ -1319,10 +1333,10 @@ SppInfo& SppInfo::operator=( const SppInfo& m )
 		recPos[i]=	m.recPos[i];
 	}
 	int sateNum=m.validnum;
-	for(int i=0;i<sateNum;i++)
+	for(int i=0;i<MAXNUMSATE;i++)
 	{
 		sateclkVel[i]	=m.sateclkVel[i];
-//		emiTime[i]		=	m.emiTime[i];
+		//		emiTime[i]		=	m.emiTime[i];
 		prnList[i]		=	m.prnList[i];
 		ele[i]				=m.ele[i];
 		azi[i]				=m.azi[i];
@@ -1344,7 +1358,7 @@ void SppInfo::ZeroElem()
 {
 	validnum	=0;
 	dtr			=0.0;
-	
+
 	for(int i=0;i<MAXNUMSATE;i++)
 	{
 		satePos[i].ZeroElem();
@@ -1360,6 +1374,44 @@ void SppInfo::ZeroElem()
 		codeCorr[i]	=0.0;
 		residual[i]		=0.0;
 	}
+}
+
+SppInfo& SppInfo::Shrink()
+{
+	SppInfo tmp;
+	tmp.gdop=gdop;
+	tmp.dtr=dtr;
+	PtrEqual(recPos,tmp.recPos,3);
+	int	cnt=0;
+	for (int i=0;i<validnum;i++)
+	{
+		if (prnList[i]!=0)
+		{
+			tmp.satePos[cnt]=satePos[i];
+			tmp.sateVel[cnt]=sateVel[i];
+			tmp.sateclkerr[cnt]=sateclkerr[i];
+			tmp.sateclkVel[cnt]=sateclkVel[i];
+			tmp.prnList[cnt]=prnList[i];
+			tmp.ele[cnt]=ele[i];
+			tmp.azi[cnt]=azi[i];
+			tmp.mapWet[cnt]=mapWet[i];
+			tmp.tropCorr[cnt]=tropCorr[i];
+			tmp.residual[cnt]=residual[i];
+			cnt++;
+		}
+	}
+	tmp.validnum=cnt;
+	*this=tmp;
+	return *this;
+}
+
+SppInfo& SppInfo::RemovePrn( int prn )
+{
+	for (int i=0;i<validnum;i++)
+	{
+		if(prnList[i]==prn) prnList[i]=0;
+	}
+	return Shrink();
 }
 
 
@@ -1484,7 +1536,7 @@ SdData::SdData()
 		ele[i]=0.0;
 		tropCor[i]=0.0;
 	}
-	
+
 }
 
 SdData& SdData::operator=(const SdData& m)
@@ -1541,7 +1593,7 @@ DataRecord:: DataRecord()
 {
 	numVadPhs=0;
 	numVadCod=0;
-	
+
 	for (int i=0;i<NFREQ+NEXOBS;i++)
 	{
 		Phase[i]		=0.0;
@@ -1583,28 +1635,28 @@ void DataRecord::ZeroElem()
 
 DdData& DdData::operator=(const DdData& m)
 {
-	
-	 refPrn	=m.refPrn;
-	 week	=m.week;
-	 sec		=m.sec;
-	 pairNum=m.pairNum;
+
+	refPrn	=m.refPrn;
+	week	=m.week;
+	sec		=m.sec;
+	pairNum=m.pairNum;
 	for (int i=0;i<3;i++)
 	{
-		 refRecPos[i]		=m.refRecPos[i];
-		 rovRecPos[i]		=m.rovRecPos[i];
-		 refSatPos_Rov[i]	=m.refSatPos_Rov[i];
-		 refSatPos_Base[i]	=m.refSatPos_Base[i];
+		refRecPos[i]		=m.refRecPos[i];
+		rovRecPos[i]		=m.rovRecPos[i];
+		refSatPos_Rov[i]	=m.refSatPos_Rov[i];
+		refSatPos_Base[i]	=m.refSatPos_Base[i];
 	}
-		for (int i=0;i<MAXNUMSATE;i++)
-		{
-			 satePosBase[i]	=m.satePosBase[i];
-			 satePosRov[i]	=m.satePosRov[i];
-			 datarecord[i]	=m.datarecord[i];
-			 mapWet[i]		=m.mapWet[i];	
-			 rovPrn[i]			=m.rovPrn[i];
-			 tropCor[i]			=m.tropCor[i];
-			 ele[i]				=m.ele[i];
-		}
+	for (int i=0;i<MAXNUMSATE;i++)
+	{
+		satePosBase[i]	=m.satePosBase[i];
+		satePosRov[i]	=m.satePosRov[i];
+		datarecord[i]	=m.datarecord[i];
+		mapWet[i]		=m.mapWet[i];	
+		rovPrn[i]			=m.rovPrn[i];
+		tropCor[i]			=m.tropCor[i];
+		ele[i]				=m.ele[i];
+	}
 	return *this;
 }
 
@@ -1728,7 +1780,7 @@ DdData& DdData::Sort()
 			exchange(&satePosRov[pos],&satePosRov[i]);
 
 			exchange(&satePosBase[pos],&satePosBase[i]);
-		    
+
 			exchange(&mapWet[pos],&mapWet[i]);
 
 			exchange(&tropCor[pos],&tropCor[i]);
@@ -1772,8 +1824,8 @@ double DdData::distRoverRover( int index )
 
 
 /*
- *num indicates the num of freq uesd
- */
+*num indicates the num of freq uesd
+*/
 DdData& DdData::Check( int numFreq )
 {
 	for (int i=0;i<pairNum;i++)
@@ -1795,20 +1847,20 @@ DdData& DdData::Shrink()
 	{
 		if (rovPrn[i]>0)
 		{
-			  datarecord[cnt]=datarecord[i];
-			  rovPrn[cnt]=rovPrn[i];
-			  mapWet[cnt]=mapWet[i];
-			  tropCor[cnt]=tropCor[i];
-			  ele[cnt]=ele[i];
-			  satePosBase[cnt]=satePosBase[i];
-			  satePosRov[cnt++]=satePosRov[i];
+			datarecord[cnt]=datarecord[i];
+			rovPrn[cnt]=rovPrn[i];
+			mapWet[cnt]=mapWet[i];
+			tropCor[cnt]=tropCor[i];
+			ele[cnt]=ele[i];
+			satePosBase[cnt]=satePosBase[i];
+			satePosRov[cnt++]=satePosRov[i];
 		}
 	}
-	  pairNum=cnt;
-	  refPrn=refPrn;
-	  week=week;
-	  sec=sec;
-	  ClearTail(cnt);
+	pairNum=cnt;
+	refPrn=refPrn;
+	week=week;
+	sec=sec;
+	ClearTail(cnt);
 	return *this/*temp*/;
 }
 
@@ -1827,6 +1879,18 @@ void DdData::ClearTail( int index )
 double DdData::distRecSate_DD( int index )
 {
 	return distRoverRover(index)-distBaseRover(index)-distRoverRef()+distBaseRef();
+}
+
+DdData& DdData::Remove( int prn )
+{
+	for (int i=0;i<pairNum;i++)
+	{
+		if (rovPrn[i]==prn)
+		{
+			rovPrn[i]=prn;
+		}
+	}
+	return Shrink();
 }
 
 DdAmbCtrl::DdAmbCtrl()
@@ -1946,7 +2010,7 @@ int DdAmbInfo::FindSat( int ind,int prn )
 			pos=i;
 			break;
 		}
-		
+
 	}
 	return pos;
 }
@@ -2245,6 +2309,11 @@ double DdObsInfo::GetEle( int prn )
 	}
 	return ele;
 }
+
+//DdObsInfo& DdObsInfo::Shrink()
+//{
+//
+//}
 
 AmbData::AmbData()
 {

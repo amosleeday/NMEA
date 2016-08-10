@@ -5,6 +5,7 @@
 #include "ExtFun.h"
 #include <iomanip>
 #include "Position.h"
+#include <time.h>
 
 /*********************************Normal Equation***************************************/
 /*
@@ -1309,7 +1310,7 @@ extern void SuperPosLonBWithFixedCrd(DdCtrl ddctrl,math::matrix<double>& PreVcmA
 	 //if the sate falls in k th, eliminate PreVcmAmb of the certain sate in  amb part 
 	for (i=dowmNum;i>0&&dowmNum>0;i--)
 	{
-		PreVcmAmb=ElimRowCol(PreVcmAmb,PreSoluAmb,downPos[i-1]+paraNum+1);
+		PreVcmAmb=ElimRowColVcmat(PreVcmAmb,PreSoluAmb,downPos[i-1]+paraNum+1);
 	}
 	/*process the cycle slip*/
 	math::matrix<double> Q_t;//=CholeskyInv(PreVcmAmb);
@@ -1719,7 +1720,12 @@ extern math::matrix<double> SoluShortEpoch(DdCtrl ddctrl,math::matrix<double>* N
 		Ambiguity ar;
 		math::matrix<double>FF(N22.RowNo(),2);
 		double  ss[2];
+		double a=clock();
 		ar.Lambda(N22.RowNo(),2,U2,N22,FF,ss);
+		double b=clock();
+		fstream lambdaTime;
+		lambdaTime.open("LambdaTime.txt",ios::app);
+		lambdaTime<<b-a<<"  "<<dimAmb<<endl;
 		ratio=ss[1]/ss[0];
 		if (ratio>ratiothrsd)
 		{

@@ -5,6 +5,7 @@
 #include "MStruct.h"
 #include "ExtFun.h"
 #include <iostream>
+#include <fstream>
 //using namespace math;
 
 //#define  DMatrix				math::matrix<double>;
@@ -13,7 +14,7 @@
 static DdAmbInfo AmbInfoSys;
 static DdObsInfo DdObsSys;
 static DdCtrl DdControl;
-
+static int epoch=0;
 
 void EqualAmbInfo(DdAmbInfo ambinfo)
 {
@@ -38,18 +39,18 @@ extern  void deliverInsideAmbInfo(DdAmbInfo & ambinfo)
 }
 
 /*
- *get next epoch data
- *I:
- *	Ofile
-	line
-	obsHeader
-	epochdata2
+*get next epoch data
+*I:
+*	Ofile
+line
+obsHeader
+epochdata2
 *O:
 *	epochdata1
 *	nepoch
 *	eventflag	10=end of file
 *	simu			t1-t2
- */
+*/
 void Position::NextEpoch(CStdioFile Ofile,CString line,ObsEpochData& epochData1,ObsHeader obsHeader,int nEpoch,int eventFlag,double simu,ObsEpochData epochData2,ProcessRinex readdata)
 {
 	while(simu<0.0)
@@ -67,153 +68,153 @@ void Position::NextEpoch(CStdioFile Ofile,CString line,ObsEpochData& epochData1,
 
 /*****************************the cycle slip detection*******************************************/
 /*	detect cycle slip 
- *	I:
- *		pre			pre data
- *		cur			current data
- *		csthrs		threshold   (cycle)
- *return:
- *		1  cycle slip
- *		0  continuous
- *	Note: the detection is based on the zero difference obs, and the unit of phs is CYCLE
- */
+*	I:
+*		pre			pre data
+*		cur			current data
+*		csthrs		threshold   (cycle)
+*return:
+*		1  cycle slip
+*		0  continuous
+*	Note: the detection is based on the zero difference obs, and the unit of phs is CYCLE
+*/
 
- /*
-  * detect cycle slip with geometry free
-  * all units are CYCLE
-  */
- double CycleSlipGF(double* predata,double* currdata,int index1,int index2,int sysid)
- {
-	 double lam1=CLIGHT/FreqSys(sysid,index1),lam2=CLIGHT/FreqSys(sysid,index2);	
-	 return -( predata[index1]-predata[index2]*lam2/lam1-(currdata[index1]-currdata[index2]*lam2/lam1) );	 
- }
+/*
+* detect cycle slip with geometry free
+* all units are CYCLE
+*/
+double CycleSlipGF(double* predata,double* currdata,int index1,int index2,int sysid)
+{
+	double lam1=CLIGHT/FreqSys(sysid,index1),lam2=CLIGHT/FreqSys(sysid,index2);	
+	return -( predata[index1]-predata[index2]*lam2/lam1-(currdata[index1]-currdata[index2]*lam2/lam1) );	 
+}
 
- /*
-  *here, the crds of both stations are known
-  *phi-rho/lam=N1-N2+T.....
-  *prephs    unit: cycle
-  */
- double CycleSlipWL(double* prephs, double rhopre,double* currphs,double rhocur,int index1,int index2,int sysid)
- {
-	 int coef[3];InitPtr(coef,3);
-	 coef[index1]=1;coef[index2]=-1;
-	 double wavelen=CLIGHT/CombFreq(sysid,coef);
-	 double preWL=prephs[0]-prephs[1]-rhopre/wavelen;
-	 double curWL=currphs[0]-currphs[1]-rhocur/wavelen;
+/*
+*here, the crds of both stations are known
+*phi-rho/lam=N1-N2+T.....
+*prephs    unit: cycle
+*/
+double CycleSlipWL(double* prephs, double rhopre,double* currphs,double rhocur,int index1,int index2,int sysid)
+{
+	int coef[3];InitPtr(coef,3);
+	coef[index1]=1;coef[index2]=-1;
+	double wavelen=CLIGHT/CombFreq(sysid,coef);
+	double preWL=prephs[0]-prephs[1]-rhopre/wavelen;
+	double curWL=currphs[0]-currphs[1]-rhocur/wavelen;
 
-	 return curWL-preWL;
- }
+	return curWL-preWL;
+}
 
- void searchCycleSlip(double dataGF,double& N1, double& N2,int serachInterval,int index1,int index2,int sysid)
- {
-	 double freq1=FreqSys(sysid,index1),freq2=FreqSys(sysid,index2);
-	 double freqRatio=freq1/freq2;
-	 double reGF=N1-freqRatio*N2;
-	 double minelem=fabs(reGF-dataGF);
-	 double reN1,reN2;
-	 for (int i=-serachInterval;i<serachInterval+1;i++)
-	 {
-		 reN1=N1+(double)i;
-		 for (int j=-serachInterval;j<serachInterval+1;j++)
-		 {
-			 reN2=N2+(double)j;
-			 double gf=reN1-freqRatio*reN2;
-			 if (fabs(reN1-freqRatio*reN2-dataGF)<=minelem)
-			 {
-				 minelem=fabs(reN1-freqRatio*reN2-dataGF);
-				 N1=reN1;
-				 N2=reN2;
-			 }
-		 }
-	 }
- }
+void searchCycleSlip(double dataGF,double& N1, double& N2,int serachInterval,int index1,int index2,int sysid)
+{
+	double freq1=FreqSys(sysid,index1),freq2=FreqSys(sysid,index2);
+	double freqRatio=freq1/freq2;
+	double reGF=N1-freqRatio*N2;
+	double minelem=fabs(reGF-dataGF);
+	double reN1,reN2;
+	for (int i=-serachInterval;i<serachInterval+1;i++)
+	{
+		reN1=N1+(double)i;
+		for (int j=-serachInterval;j<serachInterval+1;j++)
+		{
+			reN2=N2+(double)j;
+			double gf=reN1-freqRatio*reN2;
+			if (fabs(reN1-freqRatio*reN2-dataGF)<=minelem)
+			{
+				minelem=fabs(reN1-freqRatio*reN2-dataGF);
+				N1=reN1;
+				N2=reN2;
+			}
+		}
+	}
+}
 
- double RepairCycleSlip(double dataGF,double dataWL,int index1,int index2,int sysid,double& N2)
- {
-	 double freq1=FreqSys(sysid,index1),freq2=FreqSys(sysid,index2);
-	 N2=freq2/(freq1-freq2)*(dataWL-dataGF);
-	 double N1=dataGF+freq1/freq2*N2;
-	 N1=ROUND(N1);
-	 N2=ROUND(N2);
-	 searchCycleSlip(dataGF,N1,N2,3,index1,index2,sysid);
-	 return N1;
- }
- /* phs  cycle
-  * cod  meter*/
- int CycleSlipMW(double* prephs, double* precod,double* currphs, double* currcod,int index1,int index2,int sysid)
- {
-	 double mwCur=MWCom(currphs,currcod,index1,index2,sysid);
-	 double mwPre=MWCom(prephs,precod,index1,index2,sysid);
-	
-	 return mwCur-mwPre;
- }
+double RepairCycleSlip(double dataGF,double dataWL,int index1,int index2,int sysid,double& N2)
+{
+	double freq1=FreqSys(sysid,index1),freq2=FreqSys(sysid,index2);
+	N2=freq2/(freq1-freq2)*(dataWL-dataGF);
+	double N1=dataGF+freq1/freq2*N2;
+	N1=ROUND(N1);
+	N2=ROUND(N2);
+	searchCycleSlip(dataGF,N1,N2,3,index1,index2,sysid);
+	return N1;
+}
+/* phs  cycle
+* cod  meter*/
+int CycleSlipMW(double* prephs, double* precod,double* currphs, double* currcod,int index1,int index2,int sysid)
+{
+	double mwCur=MWCom(currphs,currcod,index1,index2,sysid);
+	double mwPre=MWCom(prephs,precod,index1,index2,sysid);
 
- /* Ncurr=Npre-dN */
- void RevisePreMw(AmbData& mw,double N1_N2)
- {
-	 int index=mw.CurrentIndex;
-	 for (int i=0;i<index-1;i++)
-	 {
-		 mw.Cycle[i]-=N1_N2;
-	 }
- }
+	return mwCur-mwPre;
+}
+
+/* Ncurr=Npre-dN */
+void RevisePreMw(AmbData& mw,double N1_N2)
+{
+	int index=mw.CurrentIndex;
+	for (int i=0;i<index-1;i++)
+	{
+		mw.Cycle[i]-=N1_N2;
+	}
+}
 
 
- void Position::CycleSlipDetectionBDSTriple(double thresGF,double thresMW,DdData& curData,DdData preData)
- {
-	 CycleSlipDetection(thresGF,thresMW,0,1,curData,preData);
-	 CycleSlipDetection(thresGF,thresMW,0,2,curData,preData);
- }
- /*
-  *I:
-  *	 phase unit: cycle
-	 Note: the distances between the sate and rec are revised
-  */
+void Position::CycleSlipDetectionBDSTriple(double thresGF,double thresMW,DdData& curData,DdData preData)
+{
+	CycleSlipDetection(thresGF,thresMW,0,1,curData,preData);
+	CycleSlipDetection(thresGF,thresMW,0,2,curData,preData);
+}
+/*
+*I:
+*	 phase unit: cycle
+Note: the distances between the sate and rec are revised
+*/
 
- /*
-  *unit  cycle
-  *
-  **/
- void Position::GetMW(AmbData* mw,DdData curData)
- {
-	 int prnlistMw[MAXNUMSATE];
-	 InitPtr(prnlistMw,MAXNUMSATE);
-	 for(int i=0;i<MAXNUMSATE;i++) prnlistMw[i]=mw[i].Prn;
-	 int pos=-1;
-	 for (int i=0;i<curData.pairNum;i++)
-	 {
-		 pos=FindPosInt(prnlistMw,MAXNUMSATE,curData.rovPrn[i]);
-		 if (pos==-1)
-		 {
-			 for (int j=0;j<MAXNUMSATE;j++)
-			 {
-				 if(prnlistMw[j]<=0) pos=j;
-				 prnlistMw[pos]=curData.rovPrn[i];
-				 if(pos>=0) break;
-			 }
-		 }
-		 if (curData.datarecord[i].numVadCod+curData.datarecord[i].numVadPhs>=4&&mw[pos].CurrentIndex<MAXOBSEPOCH-1)
-		 {
-			 mw[pos].Prn=curData.rovPrn[i];
-			 mw[pos].CurrentIndex++;
-			 mw[pos].Cycle[ mw[pos].CurrentIndex ]=MWCom(curData.datarecord[i].Phase,curData.datarecord[i].PsRange,0,1,Sysid(curData.rovPrn[i]));
-			 mw[pos].VadFlag [ mw[pos].CurrentIndex ]=1;
-			 mw[pos].LastObs=curData.sec;
-			 if (mw[pos].CurrentIndex==0) mw[pos].FirstObs=curData.sec;
-		 }
-		 
-	 }
- }
- 
- 
- /*triple freq are available
-  *
-  *	obs unit	cycle
-  **/
- void Position::GetEWL(EwlData* ewl,DdData curData )
- {
+/*
+*unit  cycle
+*
+**/
+void Position::GetMW(AmbData* mw,DdData curData)
+{
+	int prnlistMw[MAXNUMSATE];
+	InitPtr(prnlistMw,MAXNUMSATE);
+	for(int i=0;i<MAXNUMSATE;i++) prnlistMw[i]=mw[i].Prn;
+	int pos=-1;
+	for (int i=0;i<curData.pairNum;i++)
+	{
+		pos=FindPosInt(prnlistMw,MAXNUMSATE,curData.rovPrn[i]);
+		if (pos==-1)
+		{
+			for (int j=0;j<MAXNUMSATE;j++)
+			{
+				if(prnlistMw[j]<=0) pos=j;
+				prnlistMw[pos]=curData.rovPrn[i];
+				if(pos>=0) break;
+			}
+		}
+		if (curData.datarecord[i].numVadCod+curData.datarecord[i].numVadPhs>=4&&mw[pos].CurrentIndex<MAXOBSEPOCH-1)
+		{
+			mw[pos].Prn=curData.rovPrn[i];
+			mw[pos].CurrentIndex++;
+			mw[pos].Cycle[ mw[pos].CurrentIndex ]=MWCom(curData.datarecord[i].Phase,curData.datarecord[i].PsRange,0,1,Sysid(curData.rovPrn[i]));
+			mw[pos].VadFlag [ mw[pos].CurrentIndex ]=1;
+			mw[pos].LastObs=curData.sec;
+			if (mw[pos].CurrentIndex==0) mw[pos].FirstObs=curData.sec;
+		}
+
+	}
+}
+
+
+/*triple freq are available
+*
+*	obs unit	cycle
+**/
+void Position::GetEWL(EwlData* ewl,DdData curData )
+{
 	int sysid=Sysid(curData.refPrn);
-	 
-	 double P011=0.0,P110=0.0,Phi14_5=0.0,Phi0_11=0.0;
+
+	double P011=0.0,P110=0.0,Phi14_5=0.0,Phi0_11=0.0;
 	int coef011[3],coef110[3],coef14_5[3],coef0_11[3];
 	coef011[0]=0;	coef011[1]				=coef011[2]=1;
 	coef0_11[0]=0;	coef0_11[1]=-1;		coef0_11[2]=1;
@@ -236,7 +237,7 @@ void Position::NextEpoch(CStdioFile Ofile,CString line,ObsEpochData& epochData1,
 				prnlistEwl[pos]=curData.rovPrn[i];
 				if(pos>=0) break;
 			}
-			
+
 		}
 		if (curData.datarecord[i].numVadCod+curData.datarecord[i].numVadPhs>=6&&ewl[pos].CurrentIndex<MAXOBSEPOCH-1)
 		{
@@ -246,7 +247,7 @@ void Position::NextEpoch(CStdioFile Ofile,CString line,ObsEpochData& epochData1,
 			P110	=CombObs(sysid,coef110,curData.datarecord[i].PsRange);
 			ewl[pos].EwlCycle[0][ ewl[pos].CurrentIndex ]=(P110-Phi14_5)/lam14_5;
 			ewl[pos].VadFlag [0][ ewl[pos].CurrentIndex ]=1;
-			
+
 			Phi0_11=CombObsCycle(sysid,coef0_11,curData.datarecord[i].Phase);
 			P011	=CombObs(sysid,coef011,curData.datarecord[i].PsRange);
 			ewl[pos].EwlCycle[1][ ewl[pos].CurrentIndex ]=(P011-Phi0_11)/lam0_11;
@@ -257,109 +258,109 @@ void Position::NextEpoch(CStdioFile Ofile,CString line,ObsEpochData& epochData1,
 
 	}
 
- }
+}
 
- void Position::GetNL(fixinfo* infoWl,DdData Lcdata,AmbData* NL1)
- {
-	 DdData LcdataCopy=Lcdata;
-	 for(int j=0;j<LcdataCopy.pairNum;j++)
-	 {
-		 double rho=LcdataCopy.distRecSate_DD(j);
-		 LcdataCopy.datarecord[j].Phase[0]-=rho;
-		 LcdataCopy.datarecord[j].PsRange[0]-=rho;
-	 }
-	 
-	 int prnlistNL[MAXNUMSATE],prnlistWL[MAXNUMSATE];
-	 int sysid=Sysid(LcdataCopy.rovPrn[0]);
-	 double f1=FreqSys(sysid,0),f2=FreqSys(sysid,1);
-	 double lcd=LCD((int)(f1*1e-3),(int)(f2*1e-3) );
-	 /*the coefficient of each freq */
-	 double a=f1*1e-3/lcd,b=f2*1e-3/lcd;
-	 double lam=CLIGHT/(a*f1-b*f2);
+void Position::GetNL(fixinfo* infoWl,DdData Lcdata,AmbData* NL1)
+{
+	DdData LcdataCopy=Lcdata;
+	for(int j=0;j<LcdataCopy.pairNum;j++)
+	{
+		double rho=LcdataCopy.distRecSate_DD(j);
+		LcdataCopy.datarecord[j].Phase[0]-=rho;
+		LcdataCopy.datarecord[j].PsRange[0]-=rho;
+	}
+
+	int prnlistNL[MAXNUMSATE],prnlistWL[MAXNUMSATE];
+	int sysid=Sysid(LcdataCopy.rovPrn[0]);
+	double f1=FreqSys(sysid,0),f2=FreqSys(sysid,1);
+	double lcd=LCD((int)(f1*1e-3),(int)(f2*1e-3) );
+	/*the coefficient of each freq */
+	double a=f1*1e-3/lcd,b=f2*1e-3/lcd;
+	double lam=CLIGHT/(a*f1-b*f2);
 	for(int i=0;i<MAXNUMSATE;i++) 
 	{
-			 prnlistWL[i]=infoWl[i].prn;
-			 prnlistNL[i]=LcdataCopy.rovPrn[i];
-	 }
-	 int  posNL=-1,posWL=-1;
-	  for (int i=0;i<LcdataCopy.pairNum;i++)
-	  {
-		  posWL=FindPosInt(prnlistWL,MAXNUMSATE,LcdataCopy.rovPrn[i]);
-		  posNL=FindPosInt(prnlistNL,MAXNUMSATE,LcdataCopy.rovPrn[i]);
-		  if (posNL==-1)
-		  {
-			  for (int j=0;j<MAXNUMSATE;j++)
-			  {
-				  if(prnlistNL[j]<=0) 
-				  {
-					  posNL=j;
-					  prnlistNL[j]=LcdataCopy.rovPrn[i];
-					  break;
-				  }
-			  }
-		  }
-		  int epochNum=(int)(NL1[posNL].LastObs-NL1[posNL].FirstObs);
-		  if (posWL>=0&&posNL>=0&&epochNum<MAXOBSEPOCH)
-		  {
-				  NL1[posNL].Prn=LcdataCopy.rovPrn[i];
-				  NL1[posNL].CurrentIndex++;
-				  double wl=0;
-				  if(infoWl[posWL].fixepoch1>0)
-				  {  
-					  wl=infoWl[posWL].check1;
-					  NL1[posNL].isWLInteger[NL1[posNL].CurrentIndex]=1;
+		prnlistWL[i]=infoWl[i].prn;
+		prnlistNL[i]=LcdataCopy.rovPrn[i];
+	}
+	int  posNL=-1,posWL=-1;
+	for (int i=0;i<LcdataCopy.pairNum;i++)
+	{
+		posWL=FindPosInt(prnlistWL,MAXNUMSATE,LcdataCopy.rovPrn[i]);
+		posNL=FindPosInt(prnlistNL,MAXNUMSATE,LcdataCopy.rovPrn[i]);
+		if (posNL==-1)
+		{
+			for (int j=0;j<MAXNUMSATE;j++)
+			{
+				if(prnlistNL[j]<=0) 
+				{
+					posNL=j;
+					prnlistNL[j]=LcdataCopy.rovPrn[i];
+					break;
+				}
+			}
+		}
+		int epochNum=(int)(NL1[posNL].LastObs-NL1[posNL].FirstObs);
+		if (posWL>=0&&posNL>=0&&epochNum<MAXOBSEPOCH)
+		{
+			NL1[posNL].Prn=LcdataCopy.rovPrn[i];
+			NL1[posNL].CurrentIndex++;
+			double wl=0;
+			if(infoWl[posWL].fixepoch1>0)
+			{  
+				wl=infoWl[posWL].check1;
+				NL1[posNL].isWLInteger[NL1[posNL].CurrentIndex]=1;
 
-					  /*modify the previous ambiguity*/
-					  
-					  for (int j=0;j<epochNum;j++)
-					  {
-						  if (NL1[posNL].isWLInteger[j]==0)
-						  {
-							  NL1[posNL].Cycle[j]-=(f2/(f1-f2)*wl);
-							  NL1[posNL].isWLInteger[j]=1;
-						  }
-					  }
-				  }
-				  /*watch out the minus  "-"*/
-				  NL1[posNL].Cycle[NL1[posNL].CurrentIndex]=-(LcdataCopy.datarecord[i].Phase[0]/(CLIGHT/(f1+f2))+f2/(f1-f2)*wl);
-				  NL1[posNL].VadFlag[NL1[posNL].CurrentIndex]=1;
-				  NL1[posNL].LastObs=LcdataCopy.sec;
-				  if(NL1[posNL].CurrentIndex==0) 
-				  {
-					  NL1[posNL].FirstObs=LcdataCopy.sec;
-				  }
-		  }
+				/*modify the previous ambiguity*/
 
-	  }
- }
+				for (int j=0;j<epochNum;j++)
+				{
+					if (NL1[posNL].isWLInteger[j]==0)
+					{
+						NL1[posNL].Cycle[j]-=(f2/(f1-f2)*wl);
+						NL1[posNL].isWLInteger[j]=1;
+					}
+				}
+			}
+			/*watch out the minus  "-"*/
+			NL1[posNL].Cycle[NL1[posNL].CurrentIndex]=-(LcdataCopy.datarecord[i].Phase[0]/(CLIGHT/(f1+f2))+f2/(f1-f2)*wl);
+			NL1[posNL].VadFlag[NL1[posNL].CurrentIndex]=1;
+			NL1[posNL].LastObs=LcdataCopy.sec;
+			if(NL1[posNL].CurrentIndex==0) 
+			{
+				NL1[posNL].FirstObs=LcdataCopy.sec;
+			}
+		}
 
- void Position::outNL(AmbData* NL1,fixinfo* infoNL,fixinfo* infoWL,double thres_a)
- {
-	 int prnlistNL[MAXNUMSATE];
-	 InitPtr(prnlistNL,MAXNUMSATE);
-	 for(int i=0;i<MAXNUMSATE;i++) 
-	 {
-		 //prnlistWL[i]=infoWL[i].prn;
-		 prnlistNL[i]=NL1[i].Prn;
-	 }
-	 int posWL=-1,posNL=-1;
-	 for (int i=0;i<MAXNUMSATE;i++)
-	 {
-		 posNL=FindPosInt(prnlistNL,MAXNUMSATE,infoWL[i].prn);
-		 if (infoWL[i].fixepoch1>0&&posNL>-1&&infoNL[i].fixepoch1<=0)
-		 {
-			 if (NL1[posNL].BiasCycle()<thres_a)
-			 {
-				 infoNL[i].check1=NL1[posNL].CheckAmb();
-				 infoNL[i].check2=infoNL[i].check1-infoWL[i].check1;
-				 infoNL[i].fixepoch1=NL1[posNL].LastObs;
-				 infoNL[i].fixepoch2=infoNL[i].fixepoch1;
-			 }
-		 }
-	 }
- }
- void Position::outEwl(int nEpoch,DdData ts,EwlData* ewl,fstream& fout,fixinfo* info,
-					double thres_a,int firstepoch,int epochend,DdCtrl ddctrl)
+	}
+}
+
+void Position::outNL(AmbData* NL1,fixinfo* infoNL,fixinfo* infoWL,double thres_a)
+{
+	int prnlistNL[MAXNUMSATE];
+	InitPtr(prnlistNL,MAXNUMSATE);
+	for(int i=0;i<MAXNUMSATE;i++) 
+	{
+		//prnlistWL[i]=infoWL[i].prn;
+		prnlistNL[i]=NL1[i].Prn;
+	}
+	int posWL=-1,posNL=-1;
+	for (int i=0;i<MAXNUMSATE;i++)
+	{
+		posNL=FindPosInt(prnlistNL,MAXNUMSATE,infoWL[i].prn);
+		if (infoWL[i].fixepoch1>0&&posNL>-1&&infoNL[i].fixepoch1<=0)
+		{
+			if (NL1[posNL].BiasCycle()<thres_a)
+			{
+				infoNL[i].check1=NL1[posNL].CheckAmb();
+				infoNL[i].check2=infoNL[i].check1-infoWL[i].check1;
+				infoNL[i].fixepoch1=NL1[posNL].LastObs;
+				infoNL[i].fixepoch2=infoNL[i].fixepoch1;
+			}
+		}
+	}
+}
+void Position::outEwl(int nEpoch,DdData ts,EwlData* ewl,fstream& fout,fixinfo* info,
+	double thres_a,int firstepoch,int epochend,DdCtrl ddctrl)
 {
 	GetEWL(ewl,ts);
 	if (nEpoch>firstepoch)
@@ -396,10 +397,10 @@ void Position::NextEpoch(CStdioFile Ofile,CString line,ObsEpochData& epochData1,
 			}
 		}
 
-		 if (nEpoch==epochend)
+		if (nEpoch==epochend)
 		{
 			fout<<DistofVector(ts.refRecPos,ts.rovRecPos,3)/1000<<endl;
-			for (int k=0;k<32;k++)
+			for (int k=0;k<MAXNUMSATE;k++)
 			{
 				if (info[k].valid>0)
 				{
@@ -410,13 +411,13 @@ void Position::NextEpoch(CStdioFile Ofile,CString line,ObsEpochData& epochData1,
 			}
 			return;
 		}
- 
- 
+
+
 	}
 }
 
 void  Position::outMw(int nEpoch,DdData ts,AmbData* mw,fstream& fout,fixinfo* info,
-									double thres_a,int firstepoch,int epochend,DdCtrl ddctrl)
+	double thres_a,int firstepoch,int epochend,DdCtrl ddctrl)
 {
 	GetMW(mw,ts);
 	if (nEpoch>firstepoch)
@@ -425,7 +426,7 @@ void  Position::outMw(int nEpoch,DdData ts,AmbData* mw,fstream& fout,fixinfo* in
 		for (int i=0;i<MAXNUMSATE;i++)
 		{
 			int sys;
-		
+
 			if (mw[i].Prn>0&&mw[i].CurrentIndex>=0)
 			{
 				info[sys-1].valid=1;
@@ -440,7 +441,7 @@ void  Position::outMw(int nEpoch,DdData ts,AmbData* mw,fstream& fout,fixinfo* in
 			//cout<<setiosflags(ios::fixed)<<setprecision(1)<<setw(15)<<ewl[i].EwlCheck(0)+5.0*ewl[i].EwlCheck(1)<<endl;
 			if (mw[i].BiasCycle()>thres_a && nEpoch==epochend&&info[sys-1].fixepoch1==0)
 			{
-					info[sys-1].bias1=mw[i].BiasCycle();
+				info[sys-1].bias1=mw[i].BiasCycle();
 			}
 		}
 	}
@@ -448,7 +449,7 @@ void  Position::outMw(int nEpoch,DdData ts,AmbData* mw,fstream& fout,fixinfo* in
 	if (nEpoch==epochend)//==epochend
 	{
 		//fout<<DistofVector(dddataCurr.refRecPos,dddataCurr.rovRecPos,3)/1000<<endl;
-		for (int k=0;k<32;k++)
+		for (int k=0;k<MAXNUMSATE;k++)
 		{
 			if (info[k].valid>0)
 			{
@@ -466,128 +467,128 @@ void  Position::outMw(int nEpoch,DdData ts,AmbData* mw,fstream& fout,fixinfo* in
 
 
 
- /*
-  *detect cycle slip double or triple frequency 
-  *detect with GF and MW, L1/B1 is the reference obs
-  *
-  *
-  *Note:
-  *		if the obs of some frequencies are discontinued, the cycle slip happened
-  *		for all double-frequency obs are available
-  *		single frequency detection is not reliable
-  *		extend the isSlip, for triple-frequency (to do)
-  *		the unit of phase is cycle
-  *		here, suppose thresMW >=0.5  cycle , thresGF>=0.3 cycle
- */
- void  Position:: CycleSlipDetection(double thresGF,double thresMW ,double thresWL, int index1,int index2,
-									DdAmbInfo& ambinfoCur,DdData& curdata,DdData& predata,
-									AmbData* mw,double& N1,double& N2)
- {
-	 int i,j,k,GF=0,MW=0,WL=0,s=-1;
-	 /*for multiple frequency, the index1 and index2 denote the frequencies uesd, [0,1,2]*/	
-	int numCur=curdata.pairNum,numPre=predata.pairNum;
-	 int prnlistCur[MAXNUMSATE],prnlistPre[MAXNUMSATE],prnlistMW[MAXNUMSATE];
-	 InitPtr(prnlistCur,MAXNUMSATE);
-	 InitPtr(prnlistPre,MAXNUMSATE);
-	 InitPtr(prnlistMW,MAXNUMSATE);
-	 /*Get list of prn */
-	 for (i=0;i<numCur;i++) prnlistCur[i]=curdata.rovPrn[i];
-	 for (j=0;j<numPre;j++)  prnlistPre[j]=predata.rovPrn[j];
-	 for(i=0;i<MAXNUMSATE;i++) prnlistMW[i]=mw[i].Prn;
-	 for (i=0;i<numCur;i++)
-	 {
-		 k=FindPosInt(prnlistPre,numPre,curdata.rovPrn[i]);
-		 s=FindPosInt(prnlistMW,MAXNUMSATE,curdata.rovPrn[i]);
-		 /* the double frequecncy obs(phs and psrange )  are required*/
-		 int vadCur=curdata.datarecord[i].vadFlgPhs[index1]+curdata.datarecord[i].vadFlgPhs[index2];
-		 /*Question: process the single frequency ?*/
-		 if (k==-1)/*not found,  satellite  rises */
-		 {
-			 curdata.datarecord[i].isCycleSlip[index1]=0;
-			 curdata.datarecord[i].isCycleSlip[index2]=0;
-		 }                                                                                                                                                                                                                                                                                                                                                                                        
-		 else if(predata.datarecord[k].vadFlgPhs[index1]+predata.datarecord[k].vadFlgPhs[index2]==2 && vadCur==2)
-		 {
-			 int sysid=Sysid(curdata.rovPrn[i]);
-			 double deltaGF=CycleSlipGF(predata.datarecord[k].Phase,curdata.datarecord[i].Phase,index1,index2,sysid);
-  			 double deltaMW=-CycleSlipMW(predata.datarecord[k].Phase,predata.datarecord[k].PsRange,curdata.datarecord[i].Phase,curdata.datarecord[i].PsRange,index1,index2,sysid);
-			 
-			 double rhoPre=predata.distRoverRover(k)-predata.distRoverRef()-predata.distBaseRover(k)+predata.distBaseRef();
-			 double rhoCur=curdata.distRoverRover(i)-curdata.distRoverRef()-curdata.distBaseRover(i)+curdata.distBaseRef();
-			 double deltaWL=CycleSlipWL(predata.datarecord[k].Phase,rhoPre,curdata.datarecord[i].Phase,rhoCur,index1,index2,sysid);
-			 
-			 WL=fabs(deltaWL)>thresWL?1:0;
-			 GF=fabs(deltaGF)>thresGF?1:0;
-			 MW=fabs(deltaMW)>thresMW?1:0;
-			 if(GF+MW>0) 
-			 {
-				  cout<<curdata.rovPrn[i]<<"  "<<deltaGF<<"  "<<deltaWL<<endl;
-				  cout<<CycleSlipMW(predata.datarecord[k].Phase,predata.datarecord[k].PsRange,curdata.datarecord[i].Phase,curdata.datarecord[i].PsRange,index1,index2,sysid)<<endl;
-				  N1=RepairCycleSlip(deltaGF,deltaWL,index1,index2,sysid,N2);
-				  predata.datarecord[k].Phase[0]+=N1;
-				  predata.datarecord[k].Phase[1]+=N2;
-				  RevisePreMw(mw[s],N1-N2);
-				  //curdata.datarecord[i].isCycleSlip[index1]=1;
-				  //curdata.datarecord[i].isCycleSlip[index2]=1;
-			 }
-		 }
-	 }
- }
-
- void  Position:: CycleSlipDetection(double thresGF,double thresMW , int index1,int index2,DdData& curdata,DdData predata)
- {
-	 int i,j,k,GF=0,MW=0,WL=0,s=-1;
-	 /*for multiple frequency, the index1 and index2 denote the frequencies uesd, [0,1,2]*/	
-	 int numCur=curdata.pairNum,numPre=predata.pairNum;
-	 int prnlistCur[MAXNUMSATE],prnlistPre[MAXNUMSATE],prnlistMW[MAXNUMSATE];
-	 InitPtr(prnlistCur,MAXNUMSATE);
-	 InitPtr(prnlistPre,MAXNUMSATE);
-	 InitPtr(prnlistMW,MAXNUMSATE);
-	 /*Get list of prn */
-	 for (i=0;i<numCur;i++) prnlistCur[i]=curdata.rovPrn[i];
-	 for (j=0;j<numPre;j++)  prnlistPre[j]=predata.rovPrn[j];
-	 for (i=0;i<numCur;i++)
-	 {
-		 k=FindPosInt(prnlistPre,numPre,curdata.rovPrn[i]);
-		 /* the double frequecncy obs(phs and psrange )  are required*/
-		 int vadCur=curdata.datarecord[i].vadFlgPhs[index1]+curdata.datarecord[i].vadFlgPhs[index2];
-		 /*Question: process the single frequency ?*/
-		 if (k==-1)/*not found,  satellite  rises */
-		 {
-			 curdata.datarecord[i].isCycleSlip[index1]=1;
-			 curdata.datarecord[i].isCycleSlip[index2]=1;
-		 }                                                                                                                                                                                                                                                                                                                                                                                        
-		 else if(predata.datarecord[k].vadFlgPhs[index1]+predata.datarecord[k].vadFlgPhs[index2]==2 && vadCur==2)
-		 {
-			 int sysid=Sysid(curdata.rovPrn[i]);
-			 double deltaGF=CycleSlipGF(predata.datarecord[k].Phase,curdata.datarecord[i].Phase,index1,index2,sysid);
-			 double deltaMW=-CycleSlipMW(predata.datarecord[k].Phase,predata.datarecord[k].PsRange,curdata.datarecord[i].Phase,curdata.datarecord[i].PsRange,index1,index2,sysid);
-
-			 GF=fabs(deltaGF)>thresGF?1:0;
-			 MW=fabs(deltaMW)>thresMW?1:0;
-			 if(GF+MW>0) 
-			 {
-				 curdata.datarecord[i].isCycleSlip[index1]=1;
-				 curdata.datarecord[i].isCycleSlip[index2]=1;
-			 }
-		 }
-	 }
- }
-
-  /*******************************the end of cycle slip detection*****************************************/
-
-
-
-
- /*******************************the difference part*****************************************/
 /*
-	Select the sate on mask elevation 
-	I:
-		MaskEle		degree
-	O:
-		sppinfo	
-		lastData		the selected obsdata
-	
+*detect cycle slip double or triple frequency 
+*detect with GF and MW, L1/B1 is the reference obs
+*
+*
+*Note:
+*		if the obs of some frequencies are discontinued, the cycle slip happened
+*		for all double-frequency obs are available
+*		single frequency detection is not reliable
+*		extend the isSlip, for triple-frequency (to do)
+*		the unit of phase is cycle
+*		here, suppose thresMW >=0.5  cycle , thresGF>=0.3 cycle
+*/
+void  Position:: CycleSlipDetection(double thresGF,double thresMW ,double thresWL, int index1,int index2,
+	DdAmbInfo& ambinfoCur,DdData& curdata,DdData& predata,
+	AmbData* mw,double& N1,double& N2)
+{
+	int i,j,k,GF=0,MW=0,WL=0,s=-1;
+	/*for multiple frequency, the index1 and index2 denote the frequencies uesd, [0,1,2]*/	
+	int numCur=curdata.pairNum,numPre=predata.pairNum;
+	int prnlistCur[MAXNUMSATE],prnlistPre[MAXNUMSATE],prnlistMW[MAXNUMSATE];
+	InitPtr(prnlistCur,MAXNUMSATE);
+	InitPtr(prnlistPre,MAXNUMSATE);
+	InitPtr(prnlistMW,MAXNUMSATE);
+	/*Get list of prn */
+	for (i=0;i<numCur;i++) prnlistCur[i]=curdata.rovPrn[i];
+	for (j=0;j<numPre;j++)  prnlistPre[j]=predata.rovPrn[j];
+	for(i=0;i<MAXNUMSATE;i++) prnlistMW[i]=mw[i].Prn;
+	for (i=0;i<numCur;i++)
+	{
+		k=FindPosInt(prnlistPre,numPre,curdata.rovPrn[i]);
+		s=FindPosInt(prnlistMW,MAXNUMSATE,curdata.rovPrn[i]);
+		/* the double frequecncy obs(phs and psrange )  are required*/
+		int vadCur=curdata.datarecord[i].vadFlgPhs[index1]+curdata.datarecord[i].vadFlgPhs[index2];
+		/*Question: process the single frequency ?*/
+		if (k==-1)/*not found,  satellite  rises */
+		{
+			curdata.datarecord[i].isCycleSlip[index1]=0;
+			curdata.datarecord[i].isCycleSlip[index2]=0;
+		}                                                                                                                                                                                                                                                                                                                                                                                        
+		else if(predata.datarecord[k].vadFlgPhs[index1]+predata.datarecord[k].vadFlgPhs[index2]==2 && vadCur==2)
+		{
+			int sysid=Sysid(curdata.rovPrn[i]);
+			double deltaGF=CycleSlipGF(predata.datarecord[k].Phase,curdata.datarecord[i].Phase,index1,index2,sysid);
+			double deltaMW=-CycleSlipMW(predata.datarecord[k].Phase,predata.datarecord[k].PsRange,curdata.datarecord[i].Phase,curdata.datarecord[i].PsRange,index1,index2,sysid);
+
+			double rhoPre=predata.distRoverRover(k)-predata.distRoverRef()-predata.distBaseRover(k)+predata.distBaseRef();
+			double rhoCur=curdata.distRoverRover(i)-curdata.distRoverRef()-curdata.distBaseRover(i)+curdata.distBaseRef();
+			double deltaWL=CycleSlipWL(predata.datarecord[k].Phase,rhoPre,curdata.datarecord[i].Phase,rhoCur,index1,index2,sysid);
+
+			WL=fabs(deltaWL)>thresWL?1:0;
+			GF=fabs(deltaGF)>thresGF?1:0;
+			MW=fabs(deltaMW)>thresMW?1:0;
+			if(GF+MW>0) 
+			{
+				cout<<curdata.rovPrn[i]<<"  "<<deltaGF<<"  "<<deltaWL<<endl;
+				cout<<CycleSlipMW(predata.datarecord[k].Phase,predata.datarecord[k].PsRange,curdata.datarecord[i].Phase,curdata.datarecord[i].PsRange,index1,index2,sysid)<<endl;
+				N1=RepairCycleSlip(deltaGF,deltaWL,index1,index2,sysid,N2);
+				predata.datarecord[k].Phase[0]+=N1;
+				predata.datarecord[k].Phase[1]+=N2;
+				RevisePreMw(mw[s],N1-N2);
+				//curdata.datarecord[i].isCycleSlip[index1]=1;
+				//curdata.datarecord[i].isCycleSlip[index2]=1;
+			}
+		}
+	}
+}
+
+void  Position:: CycleSlipDetection(double thresGF,double thresMW , int index1,int index2,DdData& curdata,DdData predata)
+{
+	int i,j,k,GF=0,MW=0,WL=0,s=-1;
+	/*for multiple frequency, the index1 and index2 denote the frequencies uesd, [0,1,2]*/	
+	int numCur=curdata.pairNum,numPre=predata.pairNum;
+	int prnlistCur[MAXNUMSATE],prnlistPre[MAXNUMSATE],prnlistMW[MAXNUMSATE];
+	InitPtr(prnlistCur,MAXNUMSATE);
+	InitPtr(prnlistPre,MAXNUMSATE);
+	InitPtr(prnlistMW,MAXNUMSATE);
+	/*Get list of prn */
+	for (i=0;i<numCur;i++) prnlistCur[i]=curdata.rovPrn[i];
+	for (j=0;j<numPre;j++)  prnlistPre[j]=predata.rovPrn[j];
+	for (i=0;i<numCur;i++)
+	{
+		k=FindPosInt(prnlistPre,numPre,curdata.rovPrn[i]);
+		/* the double frequecncy obs(phs and psrange )  are required*/
+		int vadCur=curdata.datarecord[i].vadFlgPhs[index1]+curdata.datarecord[i].vadFlgPhs[index2];
+		/*Question: process the single frequency ?*/
+		if (k==-1)/*not found,  satellite  rises */
+		{
+			curdata.datarecord[i].isCycleSlip[index1]=1;
+			curdata.datarecord[i].isCycleSlip[index2]=1;
+		}                                                                                                                                                                                                                                                                                                                                                                                        
+		else if(predata.datarecord[k].vadFlgPhs[index1]+predata.datarecord[k].vadFlgPhs[index2]==2 && vadCur==2)
+		{
+			int sysid=Sysid(curdata.rovPrn[i]);
+			double deltaGF=CycleSlipGF(predata.datarecord[k].Phase,curdata.datarecord[i].Phase,index1,index2,sysid);
+			double deltaMW=-CycleSlipMW(predata.datarecord[k].Phase,predata.datarecord[k].PsRange,curdata.datarecord[i].Phase,curdata.datarecord[i].PsRange,index1,index2,sysid);
+
+			GF=fabs(deltaGF)>thresGF?1:0;
+			MW=fabs(deltaMW)>thresMW?1:0;
+			if(GF+MW>0) 
+			{
+				curdata.datarecord[i].isCycleSlip[index1]=1;
+				curdata.datarecord[i].isCycleSlip[index2]=1;
+			}
+		}
+	}
+}
+
+/*******************************the end of cycle slip detection*****************************************/
+
+
+
+
+/*******************************the difference part*****************************************/
+/*
+Select the sate on mask elevation 
+I:
+MaskEle		degree
+O:
+sppinfo	
+lastData		the selected obsdata
+
 */
 bool Position::SelectSateOnEle(double MaskEle,SppInfo& sppinfo,ObsEpochData& lastData)
 {
@@ -602,7 +603,7 @@ bool Position::SelectSateOnEle(double MaskEle,SppInfo& sppinfo,ObsEpochData& las
 			{
 				lastData.obsdatarecord[count]	=tempdata.obsdatarecord[i];
 				sppinfo.satePos[count]				=sppinfo.satePos[i];
-//				sppinfo.emiTime[count]			=sppinfo.emiTime[i];
+				//				sppinfo.emiTime[count]			=sppinfo.emiTime[i];
 				sppinfo.prnList[count]				=sppinfo.prnList[i];
 				sppinfo.ele[count]						=sppinfo.ele[i];
 				sppinfo.azi[count]						=sppinfo.azi[i];
@@ -616,7 +617,7 @@ bool Position::SelectSateOnEle(double MaskEle,SppInfo& sppinfo,ObsEpochData& las
 			}
 			count++;
 		}
-		
+
 	}
 	lastData.sateNum=count;
 	sppinfo.validnum	=count;
@@ -696,7 +697,7 @@ void Position::SetEleToObsinfo(DdObsInfo& obsinfo,SppInfo baseinfo,SppInfo rover
 			t++;
 		}
 	}
-	
+
 }
 void Position::SetEleToObsinfo(DdObsInfo& obsinfo,SppInfoGlo baseinfo,SppInfoGlo roverinfo,int* pos1,int* pos2,int refprn,int count)
 {
@@ -741,31 +742,31 @@ void Position::SetEleToObsinfo(DdObsInfo& obsinfo,SppInfoGlo baseinfo,SppInfoGlo
 
 
 /*
-	single difference between stations
-	this function is a part of SelectRefSate, the sates' postion of two receivers had
-	intersected previously. see
-	I:
-		pos1			intersect result, the position of sate in zdbase struct
-		pos2			intersect result, the position of sate in zdrover struct
-		count		the intersect number between two station
-		refPrn		reference sate prn
-		zdbase		data of base station
-		zdrover		data of rover station
-		baseinfo	the base station information of spp
-		roverinfo	the rover station information of spp
-	O:
-		sddata		single difference data
-	Note:
-		not consider sateclk compensate (due to the difference of obs time)
+single difference between stations
+this function is a part of SelectRefSate, the sates' postion of two receivers had
+intersected previously. see
+I:
+pos1			intersect result, the position of sate in zdbase struct
+pos2			intersect result, the position of sate in zdrover struct
+count		the intersect number between two station
+refPrn		reference sate prn
+zdbase		data of base station
+zdrover		data of rover station
+baseinfo	the base station information of spp
+roverinfo	the rover station information of spp
+O:
+sddata		single difference data
+Note:
+not consider sateclk compensate (due to the difference of obs time)
 
-	the raw data is calibrated by troposphere correction
-	,the  receiver clock error(from SPP)
-	and the receiving time
-	t_obs-=clk_err	Li=Li-fi*clk_err  P=P-C*clk_err
+the raw data is calibrated by troposphere correction
+,the  receiver clock error(from SPP)
+and the receiving time
+t_obs-=clk_err	Li=Li-fi*clk_err  P=P-C*clk_err
 */
 void Position::SDstation(int* pos1,int* pos2,int count,int refPrn,
-					ObsEpochData zdbase,ObsEpochData zdrover,SppInfo baseinfo,SppInfo roverinfo,
-					SdData& sddata)
+	ObsEpochData zdbase,ObsEpochData zdrover,SppInfo baseinfo,SppInfo roverinfo,
+	SdData& sddata)
 {
 	sddata.satnum=count;
 	sddata.week	=zdbase.week;
@@ -777,7 +778,7 @@ void Position::SDstation(int* pos1,int* pos2,int count,int refPrn,
 		sddata.refRecPos[i]			=baseinfo.recPos[i];
 		sddata.rovRecPos[i]			=roverinfo.recPos[i];
 	}
-	
+
 	double freq, lamda;//////add the lamda
 	for(int i=0;i<count;i++)
 	{
@@ -800,20 +801,20 @@ void Position::SDstation(int* pos1,int* pos2,int count,int refPrn,
 				sddata.sddatarecord[i].numVadCod++;
 				sddata.sddatarecord[i].vadFlgCod[j]=1;
 				sddata.sddatarecord[i].PsRange[j]		=zdrover.obsdatarecord[pos2[i]].PsRange[j]-roverinfo.tropCorr[pos2[i]]-
-																		(zdbase.obsdatarecord[pos1[i]].PsRange[j]-baseinfo.tropCorr[pos1[i]])-
-																		sateclk_cort;
+					(zdbase.obsdatarecord[pos1[i]].PsRange[j]-baseinfo.tropCorr[pos1[i]])-
+					sateclk_cort;
 			}
 			if (zdrover.obsdatarecord[pos2[i]].vadFlgPhs[j]==1&&zdbase.obsdatarecord[pos1[i]].vadFlgPhs[j]==1)
 			{
 				sddata.sddatarecord[i].numVadPhs++;
 				sddata.sddatarecord[i].vadFlgPhs[j]=1;
 				sddata.sddatarecord[i].Phase[j]			=zdrover.obsdatarecord[pos2[i]].Phase[j]-roverinfo.tropCorr[pos2[i]]/lamda-
-																		(zdbase.obsdatarecord[pos1[i]].Phase[j]-baseinfo.tropCorr[pos1[i]]/lamda)-
-																		sateclk_cort/lamda;
+					(zdbase.obsdatarecord[pos1[i]].Phase[j]-baseinfo.tropCorr[pos1[i]]/lamda)-
+					sateclk_cort/lamda;
 			}
-			
-			
-			
+
+
+
 		}
 
 	}
@@ -822,8 +823,8 @@ void Position::SDstation(int* pos1,int* pos2,int count,int refPrn,
 
 /*single difference between stations of GLONASS  */
 void Position::SDstation(int* pos1,int* pos2,int count,int refPrn,
-					ObsEpochData zdbase,ObsEpochData zdrover,SppInfoGlo baseinfo,SppInfoGlo roverinfo,
-					SdData& sddata)
+	ObsEpochData zdbase,ObsEpochData zdrover,SppInfoGlo baseinfo,SppInfoGlo roverinfo,
+	SdData& sddata)
 {
 	sddata.satnum=count;
 	sddata.week	=zdbase.week;
@@ -873,9 +874,9 @@ void Position::SDstation(int* pos1,int* pos2,int count,int refPrn,
 static int ReferSat=0;
 
 /*return ref sate prn
- *
- * refPrnPre  Previous prn 
- */
+*
+* refPrnPre  Previous prn 
+*/
 int Position::SelectRefSate(SppInfo sppinfobase,SppInfo sppinforover,double maskEle,ObsEpochData lastDataBase,
 	ObsEpochData lastDataRover,SdData& lastSdData,DdObsInfo& obsinfo,int is_initRTKDone,int& refPrnPre)
 {
@@ -901,7 +902,7 @@ int Position::SelectRefSate(SppInfo sppinfobase,SppInfo sppinforover,double mask
 				/*set is_initRTKDone=1 and prnPreviuos=XXX, fix the refsat*/
 				if (is_initRTKDone==1&&refPrnPre>0&&prnlist1[count]==refPrnPre)
 					ind=count;
-				
+
 				count++;
 			}
 		}
@@ -909,19 +910,19 @@ int Position::SelectRefSate(SppInfo sppinfobase,SppInfo sppinforover,double mask
 	if (count<4)	return 0;
 
 	int temprefPrn;
-	
+
 	if((is_initRTKDone==1&&refPrnPre<=0) || (is_initRTKDone==0) )
 		ind= AbsIndMaxInd(ele,count);//index of refsat
 
-		temprefPrn=prnlist1[ind];
+	temprefPrn=prnlist1[ind];
 
 	// set the elevations to the obsinfo 
 	SetEleToObsinfo(obsinfo,sppinfobase,sppinforover,pos1,pos2,temprefPrn,count);
-//	refPrn=temprefPrn;
-	
+	//	refPrn=temprefPrn;
+
 	SDstation(pos1,pos2,count,temprefPrn,lastDataBase,lastDataRover,sppinfobase,sppinforover,lastSdData);
 	//----------------------------------------------
-	
+
 	delete[] pos1,pos2,ele,prnlist1;
 	//DoubleDiff(refPrn,FindPosInt(lastSdData.prn,lastSdData.satnum,refPrn),lastSdData,dddataCurr);
 	return temprefPrn;
@@ -930,60 +931,60 @@ int Position::SelectRefSate(SppInfo sppinfobase,SppInfo sppinforover,double mask
 }
 
 int Position::SelectRefSate(SppInfoGlo sppinfobase,SppInfoGlo sppinforover,double maskEle,ObsEpochData lastDataBase,
-									ObsEpochData lastDataRover,SdData& lastSdData,DdObsInfo& obsinfo,int* dNum)
+	ObsEpochData lastDataRover,SdData& lastSdData,DdObsInfo& obsinfo,int* dNum)
 {
-		int count=0;
-		int num=max(sppinfobase.validnum, sppinforover.validnum);
-		int* prnlist1		=new int[num];
-		int* pos1			=new int[num];
-		int* pos2			=new int[num];
-		double* ele		=new double[num];
+	int count=0;
+	int num=max(sppinfobase.validnum, sppinforover.validnum);
+	int* prnlist1		=new int[num];
+	int* pos1			=new int[num];
+	int* pos2			=new int[num];
+	double* ele		=new double[num];
 
-		for(int i=0;i<sppinfobase.validnum;i++)
+	for(int i=0;i<sppinfobase.validnum;i++)
+	{
+		for(int j=0;j<sppinforover.validnum;j++)
 		{
-			for(int j=0;j<sppinforover.validnum;j++)
+			if(sppinfobase.prnList[i]==sppinforover.prnList[j] && sppinfobase.ele[i]>=maskEle*D2R && sppinforover.ele[j]>=maskEle*D2R)
 			{
-				if(sppinfobase.prnList[i]==sppinforover.prnList[j] && sppinfobase.ele[i]>=maskEle*D2R && sppinforover.ele[j]>=maskEle*D2R)
-				{
-					dNum[count]		=sppinfobase.freqNum[i];
-					prnlist1[count]		=sppinfobase.prnList[i];
-					pos1[count]			=i;
-					pos2[count]			=j;
-					ele[count]				=(sppinfobase.ele[i]+sppinforover.ele[j])/2;
-					lastSdData.ele[count]=ele[count];
-					count++;
-				}
+				dNum[count]		=sppinfobase.freqNum[i];
+				prnlist1[count]		=sppinfobase.prnList[i];
+				pos1[count]			=i;
+				pos2[count]			=j;
+				ele[count]				=(sppinfobase.ele[i]+sppinforover.ele[j])/2;
+				lastSdData.ele[count]=ele[count];
+				count++;
 			}
 		}
-		if (count<4)	return 0;
+	}
+	if (count<4)	return 0;
 
-		int ind;
-		ind= AbsIndMaxInd(ele,count);//index of refsat
-		int temprefPrn;
-		temprefPrn=prnlist1[ind];
-		// set the elevations to the obsinfo 
-		SetEleToObsinfo(obsinfo,sppinfobase,sppinforover,pos1,pos2,temprefPrn,count);
-		//	refPrn=temprefPrn;
-		SDstation(pos1,pos2,count,temprefPrn,lastDataBase,lastDataRover,sppinfobase,sppinforover,lastSdData);
-		//----------------------------------------------
+	int ind;
+	ind= AbsIndMaxInd(ele,count);//index of refsat
+	int temprefPrn;
+	temprefPrn=prnlist1[ind];
+	// set the elevations to the obsinfo 
+	SetEleToObsinfo(obsinfo,sppinfobase,sppinforover,pos1,pos2,temprefPrn,count);
+	//	refPrn=temprefPrn;
+	SDstation(pos1,pos2,count,temprefPrn,lastDataBase,lastDataRover,sppinfobase,sppinforover,lastSdData);
+	//----------------------------------------------
 
-		delete[] pos1,pos2,ele,prnlist1;
-		//DoubleDiff(refPrn,FindPosInt(lastSdData.prn,lastSdData.satnum,refPrn),lastSdData,dddataCurr);
-		return temprefPrn;
-		///int kkk=0;
-		//return true;
+	delete[] pos1,pos2,ele,prnlist1;
+	//DoubleDiff(refPrn,FindPosInt(lastSdData.prn,lastSdData.satnum,refPrn),lastSdData,dddataCurr);
+	return temprefPrn;
+	///int kkk=0;
+	//return true;
 
 
 }
 /*
-	double difference 
-	I:
-		refPrn		reference sate prn  
-		Ind			the index of refsate in sddata, 
-		num			number of data in sddata
-		sddata		the single difference data between stations, calibrate the troposphere and sateclk
-	O:
-		dddata		the difference
+double difference 
+I:
+refPrn		reference sate prn  
+Ind			the index of refsate in sddata, 
+num			number of data in sddata
+sddata		the single difference data between stations, calibrate the troposphere and sateclk
+O:
+dddata		the difference
 */
 void Position::DoubleDiff(int refPrn,int Ind,SdData sddata,DdData& dddata)
 {
@@ -1020,7 +1021,7 @@ void Position::DoubleDiff(int refPrn,int Ind,SdData sddata,DdData& dddata)
 					dddata.datarecord[count].vadFlgPhs[j]=1;
 					dddata.datarecord[count].Phase[j]			=sddata.sddatarecord[i].Phase[j]-sddata.sddatarecord[Ind].Phase[j];
 				}
-				
+
 			}
 			count++;
 		}
@@ -1116,7 +1117,7 @@ void Position::ComObsCod(DdCtrl& ddctrl,DdData& temp,DdData dddata,DdObsInfo& dd
 	temp.refPrn=dddata.refPrn;
 	temp.week=dddata.week;
 	temp.sec=dddata.sec;
-	
+
 	for (i=0;i<3;i++)
 	{
 		temp.refRecPos[i]=dddata.refRecPos[i];
@@ -1194,16 +1195,16 @@ void Position::ComObsCod(DdCtrl& ddctrl,DdData& temp,DdData dddata,DdObsInfo& dd
 				{
 					ddobsinfo.prnlistCod[j][ ddobsinfo.numCod[j] ]=dddata.rovPrn[i];
 					ddobsinfo.numCod[j]++;
-		
+
 					temp.datarecord[i].numVadCod++;
 					temp.datarecord[i].vadFlgCod[j]=1;
 					temp.datarecord[i].PsRange[j]=CombObs(ddctrl.sysid,coef,obs);
 				}
-				
+
 			}
 		}
 	}
-	
+
 }
 void Position::ComObsPhs(DdCtrl& ddctrl,DdData& temp,DdData dddata,DdObsInfo& ddobsinfo,DdAmbInfo& curambinfo)
 {
@@ -1292,34 +1293,34 @@ void Position::ComObsPhsGlo(DdCtrl& ddctrl,DdData& temp,DdData dddata,DdObsInfo&
 	numobs=ddctrl.PhsTypeNo();
 	curambinfo.freqNum=numobs;
 
-		for (i=0;i<numobs;i++)
+	for (i=0;i<numobs;i++)
+	{
+		ddctrl.freqPhs[i]=FreqSys(ddctrl.sysid,ddctrl.ddambctrl.coef[0][i]-1);
+	}
+	for (j=0;j<numobs;j++)
+	{
+		for (i=0;i<dddata.pairNum;i++)
 		{
-			ddctrl.freqPhs[i]=FreqSys(ddctrl.sysid,ddctrl.ddambctrl.coef[0][i]-1);
-		}
-		for (j=0;j<numobs;j++)
-		{
-			for (i=0;i<dddata.pairNum;i++)
+			if (dddata.datarecord[i].vadFlgPhs[  ddctrl.ddambctrl.coef[0][j]-1  ]==1)
 			{
-				if (dddata.datarecord[i].vadFlgPhs[  ddctrl.ddambctrl.coef[0][j]-1  ]==1)
-				{
-					ddobsinfo.prnlistPhs[j][ ddobsinfo.numPhs[j] ]=dddata.rovPrn[i];
-					curambinfo.prnList[j][ ddobsinfo.numPhs[j] ]=dddata.rovPrn[i];
-					ddobsinfo.numPhs[j]++;
-					temp.datarecord[i].numVadPhs++;
-					temp.datarecord[i].vadFlgPhs[j]=1;
-					temp.datarecord[i].Phase[j]=dddata.datarecord[i].Phase[ ddctrl.ddambctrl.coef[0][j]-1 ];
-				}
+				ddobsinfo.prnlistPhs[j][ ddobsinfo.numPhs[j] ]=dddata.rovPrn[i];
+				curambinfo.prnList[j][ ddobsinfo.numPhs[j] ]=dddata.rovPrn[i];
+				ddobsinfo.numPhs[j]++;
+				temp.datarecord[i].numVadPhs++;
+				temp.datarecord[i].vadFlgPhs[j]=1;
+				temp.datarecord[i].Phase[j]=dddata.datarecord[i].Phase[ ddctrl.ddambctrl.coef[0][j]-1 ];
 			}
 		}
+	}
 
 }
 
 
 /*
- *combine the observation, according to the DdCtrl
- *simultaneously, set the current DdObsInfo
- *and set the current DdAmbInfo
- */
+*combine the observation, according to the DdCtrl
+*simultaneously, set the current DdObsInfo
+*and set the current DdAmbInfo
+*/
 DdData Position::ComObsPhsCod(DdCtrl& ddctrl,DdObsInfo& ddobsinfo,DdAmbInfo& curambinfo,DdData dddata)
 {
 	DdData temp;
@@ -1340,9 +1341,9 @@ DdData Position::ComObsPhsCodGlo(DdCtrl& ddctrl,DdObsInfo& ddobsinfo,DdAmbInfo& 
 /****************************the end of the process of DD data********************************************/
 
 /*
- *after combing the observation, pass the preamb to curamb
- */
- void Position:: PassPreAmb(DdAmbInfo preamb,DdAmbInfo& curamb,DdCtrl ddctrl)
+*after combing the observation, pass the preamb to curamb
+*/
+void Position:: PassPreAmb(DdAmbInfo preamb,DdAmbInfo& curamb,DdCtrl ddctrl)
 {
 	int num=ddctrl.PhsTypeNo();
 	int i,j,k;
@@ -1365,17 +1366,17 @@ DdData Position::ComObsPhsCodGlo(DdCtrl& ddctrl,DdObsInfo& ddobsinfo,DdAmbInfo& 
 
 /**************************Design     Matrix**********************************************/
 
- /*
- part of FormDdErrEq
- Form the design matrix for position and constance L
-	I:
-		dddata
-	O:
-		DesMatPos
-		l				the range difference pairNum*1
-	Note: 
-		Obs 
-		P^{Rov}_{R} - P^{Ref}_{R}-(	P^{Rov}_{B} - P^{Ref}_{B}	)
+/*
+part of FormDdErrEq
+Form the design matrix for position and constance L
+I:
+dddata
+O:
+DesMatPos
+l				the range difference pairNum*1
+Note: 
+Obs 
+P^{Rov}_{R} - P^{Ref}_{R}-(	P^{Rov}_{B} - P^{Ref}_{B}	)
 */
 void Position::FormDesMatPos(math::matrix<double>& DesMatPos,math::matrix<double>& L,DdData dddata,DdObsInfo ddobsinfo,DdCtrl ddctrl)
 {
@@ -1519,13 +1520,13 @@ void Position::FormDesMatPos(math::matrix<double>& DesMatPos,math::matrix<double
 
 
 /*
-	part of FormDdErrEq
-	form design matrix for tropsphere(corrected by UNB3)
-	I:
-		ddctrl
-	O:
-		DesMatTrop
-		
+part of FormDdErrEq
+form design matrix for tropsphere(corrected by UNB3)
+I:
+ddctrl
+O:
+DesMatTrop
+
 */
 void Position::FormDesMatTrop(math::matrix<double>& DesMatTrop,DdCtrl ddctrl,DdData dddata)
 {
@@ -1560,7 +1561,7 @@ void Position::FormDesMatTrop(math::matrix<double>& DesMatTrop,DdCtrl ddctrl,DdD
 }
 
 void Position::FormDesMatTrop_Interval(DdCtrl ddctrl,math::matrix<double>& DesMatTrop_Cur,
-															double* ptrMapPre,double* ptrMapCur,DdData dddata_cur,DdData dddata_pre)
+	double* ptrMapPre,double* ptrMapCur,DdData dddata_cur,DdData dddata_pre)
 {
 	int num=ddctrl.CodTypeNo();
 	int i,j,cnt=0;
@@ -1592,8 +1593,8 @@ void Position::FormDesMatTrop_Interval(DdCtrl ddctrl,math::matrix<double>& DesMa
 
 /*reform the desmat of trop, with the certain Interval  */
 void Position::FormDesMatTrop_ReNew(DdCtrl ddctrl, double nEpoch,double& firstTime,double& curTime, ObsEpochData roverData,
-															DdData dddataCur,DdData dddataPre,double* ptrMapCur,double* ptrMapPre,
-															math::matrix<double> DesMatTrop, math::matrix<double>& DesMatTrop_Hour,double interval)
+	DdData dddataCur,DdData dddataPre,double* ptrMapCur,double* ptrMapPre,
+	math::matrix<double> DesMatTrop, math::matrix<double>& DesMatTrop_Hour,double interval)
 {
 	if (nEpoch==1)
 	{
@@ -1625,8 +1626,8 @@ void Position::FormDesMatTrop_ReNew(DdCtrl ddctrl, double nEpoch,double& firstTi
 
 
 /*
-	DesMatIono	=[	phase; pseudo];phaseMatIono=[L1 L2 L5]
-	all data needed are available by default
+DesMatIono	=[	phase; pseudo];phaseMatIono=[L1 L2 L5]
+all data needed are available by default
 */
 void Position::FormDesMatIono(math::matrix<double>& DesMatIono,DdCtrl ddctrl,DdData dddata)
 {
@@ -1808,51 +1809,51 @@ void Position::FormDesMatIonoGlo(math::matrix<double>& DesMatIono,DdCtrl ddctrl,
 }
 
 /*
-	form design matrix of ambiguity
-	I:
-		ddctrl  reserved
-	O:
-		DesMatAmb 
-		0= combination 1=single freq	2=double	3=triple
+form design matrix of ambiguity
+I:
+ddctrl  reserved
+O:
+DesMatAmb 
+0= combination 1=single freq	2=double	3=triple
 */
 void Position::FormDesMatAmb(math::matrix<double>& DesMatAmb,DdCtrl ddctrl,DdData dddata,DdObsInfo ddobsinfo,DdAmbInfo ambinfo)
 {
-		int num;//=(ddctrl.pseudoFlag>3)?ddctrl.pseudoFlag-3:ddctrl.pseudoFlag;
-		int cnt=0,i,j,k;
-		double lam=0.0;
-		cnt=ddobsinfo.SumCod();
+	int num;//=(ddctrl.pseudoFlag>3)?ddctrl.pseudoFlag-3:ddctrl.pseudoFlag;
+	int cnt=0,i,j,k;
+	double lam=0.0;
+	cnt=ddobsinfo.SumCod();
 
-		num=ddctrl.PhsTypeNo();
-		int cnt1=0;
-		for (i=0;i<num;i++)
+	num=ddctrl.PhsTypeNo();
+	int cnt1=0;
+	for (i=0;i<num;i++)
+	{
+		lam=CLIGHT/ddctrl.freqPhs[i];
+		for (j=0;j<dddata.pairNum;j++)
 		{
-			lam=CLIGHT/ddctrl.freqPhs[i];
-			for (j=0;j<dddata.pairNum;j++)
+			if (dddata.datarecord[j].vadFlgPhs[i]==1)
 			{
-				if (dddata.datarecord[j].vadFlgPhs[i]==1)
+				int pos,num=ambinfo.NoSat(i);
+				pos=FindPosInt(ambinfo.prnList[i],num,dddata.rovPrn[j]);
+				if (pos==-1)
 				{
-					int pos,num=ambinfo.NoSat(i);
-					pos=FindPosInt(ambinfo.prnList[i],num,dddata.rovPrn[j]);
-					if (pos==-1)
-					{
-						DesMatAmb(cnt,cnt1++)=-lam;
-					}
-					else
-					{
-						if(ambinfo.fixFlag[i][pos]!=1) DesMatAmb(cnt,cnt1++)=-lam;
-					}
-					cnt++;
+					DesMatAmb(cnt,cnt1++)=-lam;
 				}
-				
+				else
+				{
+					if(ambinfo.fixFlag[i][pos]!=1) DesMatAmb(cnt,cnt1++)=-lam;
+				}
+				cnt++;
 			}
+
 		}
+	}
 }
 
 int Position::FormDesMatAmb(math::matrix<double>& DesMatAmb,DdData dddata,int numPhsType,int numCod,double*freqPhs,DdAmbInfo ambinfo)
 {
 	int col=ambinfo.TotalUnfixNum(numPhsType);
 	if(col==0) return 0;
-	
+
 	//DMatrix tDesAmb(numPhs+numCod,col);
 	int numTypePhs;//=(ddctrl.pseudoFlag>3)?ddctrl.pseudoFlag-3:ddctrl.pseudoFlag;
 	int cnt=0,i,j,k;
@@ -1908,12 +1909,12 @@ void Position:: FormDesMatAmbGlo(math::matrix<double>& DesMatAmb,DdCtrl ddctrl,D
 }
 
 /*
-	Form residual Prs
-	I:
-		l				the range difference of DD     dddata.pairNum*1
-		dddata		
-	O:
-		L				the residual of DD, ddobs-ddrange       (phsFlag*pairNum + pseudoFlag*pairnum)*1
+Form residual Prs
+I:
+l				the range difference of DD     dddata.pairNum*1
+dddata		
+O:
+L				the residual of DD, ddobs-ddrange       (phsFlag*pairNum + pseudoFlag*pairnum)*1
 */
 void Position::FormResidual(math::matrix<double>& L,DdData dddata,int numTypeCod,int numTypePhs)
 {
@@ -2002,15 +2003,15 @@ void Position::FormResidual(math::matrix<double>& L,math::matrix<double>& V,DdDa
 }
 
 /*
-	reform the error equation of dd
-	change the ambiguity design matrix and constant vector(residual) 
-	I:
-		ddambinfo	preambinfo
-		ddctrl
-		curdddata		current dddata
-	O:
-		DesMatAmb
-		L
+reform the error equation of dd
+change the ambiguity design matrix and constant vector(residual) 
+I:
+ddambinfo	preambinfo
+ddctrl
+curdddata		current dddata
+O:
+DesMatAmb
+L
 */
 
 void Position::ReFormConstWithAmb(math::matrix<double>& L, DdAmbInfo ambinfo,int numCod,int TypePhsNo,double* freqPhs,DdData dddata)
@@ -2065,8 +2066,8 @@ void Position::ReFormConstWithAmb(math::matrix<double>& L, DdAmbInfo ambinfo,DdO
 	}
 }
 /*
- * form weight, of uncombined obs
- */
+* form weight, of uncombined obs
+*/
 math::matrix<double> Position::FormWeight(DdCtrl ddctrl,DdData curdata,DdObsInfo obsinfo)
 {
 	int numPhs=obsinfo.SumPhs(),numCod=obsinfo.SumCod();
@@ -2080,7 +2081,7 @@ math::matrix<double> Position::FormWeight(DdCtrl ddctrl,DdData curdata,DdObsInfo
 	{
 		//for sd 
 		cofact(i,i)=cofactor(obsinfo.eleRovBase[i],ddctrl.weightMode)+cofactor(obsinfo.eleRovRov[i],ddctrl.weightMode)
-						+corefSat;
+			+corefSat;
 		cofactptr[i]=cofact(i,i);
 	}
 	//for code
@@ -2118,7 +2119,7 @@ math::matrix<double> Position::FormWeight(DdCtrl ddctrl,DdData curdata,DdObsInfo
 		math::matrix<double>C=EyeMat(codType);
 		temp=Kronecker(C,cofact,2);
 		int count=0;
-		
+
 		for (k=0;k<codType;k++)
 		{
 			count=0;
@@ -2134,7 +2135,7 @@ math::matrix<double> Position::FormWeight(DdCtrl ddctrl,DdData curdata,DdObsInfo
 					temp=RemoveRowCol(temp,count+1);
 				}
 			}
-			
+
 		}
 	}
 	temp=temp/SQ(ddctrl.sigmaPhs*10.0);
@@ -2270,10 +2271,10 @@ DMatrix Position::FormWeightSingleFreqPhs(int singleFreqObsNum,double eleRefBase
 	return CholeskyInv(Q);
 }
 /*
- *form weight of ERTK 1.(1,4,-5) and 2.(0,-1,1)
- *Input:
- *		numSingle   single frequency obs of phase
- */
+*form weight of ERTK 1.(1,4,-5) and 2.(0,-1,1)
+*Input:
+*		numSingle   single frequency obs of phase
+*/
 DMatrix Position::FormWeightErtk(int singleFreqObsNum,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase)
 {
 	int coef1[3]={1,4,-5},coef2[3]={0,-1,1};
@@ -2324,47 +2325,47 @@ DMatrix Position::FormWeightErtkNl(int numSinlge,double eleRefBase,double eleRef
 	return Kronecker(CholeskyInv(initMat),CholeskyInv(Qinit),4);
 }
 /*
-	Form error equation of dd
-	I:
-		dddata
-	O:
-		DesMatPos		n*3
-		DesMatTrop		n*?
-		DesMatIono		n*n or n*0
+Form error equation of dd
+I:
+dddata
+O:
+DesMatPos		n*3
+DesMatTrop		n*?
+DesMatIono		n*n or n*0
 
-		Weight				to be optimized
-		L						n*1
-	Note:
-		DesMat	=[	phase; pseudo];	phaseMat=[L1 L2 L5]
-		the parameter list is [x, y, z, trop, iono, amb, others]'
-		observation model:	Ddobs	=Ddrho+DdTrop+DdIono-Lambda*DdAmb+¡­¡­ 
-		always	(rover-reference) of roverstation-(rover-reference) of basestation
-		use the partition matrix operation,here
+Weight				to be optimized
+L						n*1
+Note:
+DesMat	=[	phase; pseudo];	phaseMat=[L1 L2 L5]
+the parameter list is [x, y, z, trop, iono, amb, others]'
+observation model:	Ddobs	=Ddrho+DdTrop+DdIono-Lambda*DdAmb+¡­¡­ 
+always	(rover-reference) of roverstation-(rover-reference) of basestation
+use the partition matrix operation,here
 */
 void Position::FormDdErrEq(math::matrix<double>& DesMatPos,math::matrix<double>& DesMatTrop,math::matrix<double>& DesMatIono,math::matrix<double>& DesMatAmb,
-							math::matrix<double>& Weight, math::matrix<double>& L,DdData dddata,DdCtrl ddctrl,DdAmbInfo ambinfo,DdObsInfo ddobsinfo)
+	math::matrix<double>& Weight, math::matrix<double>& L,DdData dddata,DdCtrl ddctrl,DdAmbInfo ambinfo,DdObsInfo ddobsinfo)
 {
 	// form the design matrix for position	 and the constance L
 	//ddobsinfo.SumCod()+ddobsinfo.SumPhs()
-	
+
 	FormDesMatPos(DesMatPos, L ,dddata,ddobsinfo,ddctrl);
 
 	FormDesMatAmb(DesMatAmb, ddctrl,dddata,ddobsinfo,ambinfo);
 
 	FormDesMatIono(DesMatIono,ddctrl,dddata);
-	
+
 	FormDesMatTrop( DesMatTrop, ddctrl,dddata);
-	
+
 	FormResidual(L,dddata,ddctrl,ambinfo);
 
 	ReFormConstWithAmb(L,ambinfo,ddobsinfo,ddctrl,dddata);
-	
+
 	/* use FormWeightVc*/
 	//Weight=FormWeight(ddctrl,dddata,ddobsinfo);
 }
 
 void Position::FormDdErrEq(math::matrix<double>& DesMatPos,math::matrix<double>& DesMatTrop,math::matrix<double>& DesMatIono,math::matrix<double>& DesMatAmb,
-										 math::matrix<double>& L,DdData dddata,DdCtrl ddctrl,DdAmbInfo ambinfo,DdObsInfo ddobsinfo)
+	math::matrix<double>& L,DdData dddata,DdCtrl ddctrl,DdAmbInfo ambinfo,DdObsInfo ddobsinfo)
 {
 	FormDesMatPos( DesMatPos, L ,dddata,ddobsinfo,ddctrl);
 
@@ -2373,13 +2374,13 @@ void Position::FormDdErrEq(math::matrix<double>& DesMatPos,math::matrix<double>&
 		FormDesMatAmb(DesMatAmb, ddctrl,dddata,ddobsinfo,ambinfo);
 		FormDesMatIono(DesMatIono,ddctrl,dddata);
 	}
-		
+
 	if (ddctrl.sysid==2)
 	{
 		FormDesMatAmbGlo(DesMatAmb,ddctrl,dddata);
 		//FormDesMatIonoGlo(DesMatIono,ddctrl,dddata);
 	}
-	
+
 	FormDesMatTrop( DesMatTrop, ddctrl,dddata);
 
 	FormResidual(L,dddata,ddctrl,ambinfo);
@@ -2410,22 +2411,22 @@ void Position::PassPreAmb(DdAmbInfo pre,DdAmbInfo& cur,int typeNum)
 				}
 			}
 		}
-		
+
 	}
 }
 /*
-	change the Predddata and Amb base on the cycle slip of refsat
-	I:
-		preAmbInfo
-		newRef
-	O:
-		preAmbInfo
+change the Predddata and Amb base on the cycle slip of refsat
+I:
+preAmbInfo
+newRef
+O:
+preAmbInfo
 */
 void Position::ChangePreAmb(DdAmbInfo& preAmbInfo,int newRef,DdCtrl ddctrl)
 {
 	int pos,i,j,k;
 	int num	=(ddctrl.ddambctrl.flag-3>0)?ddctrl.ddambctrl.flag-3	:ddctrl.ddambctrl.flag;
-	
+
 	for (i=0;i<num;i++)
 	{
 		pos=preAmbInfo.FindSat(i,newRef);
@@ -2455,7 +2456,7 @@ void Position::ChangePredataByNewRef(DdData& predddata,int newRef)
 	}
 	temp.refPrn			=newRef;
 	temp.rovPrn[index]	=predddata.refPrn;
- 	for (int i=0;i<NFREQ+NEXOBS;i++)
+	for (int i=0;i<NFREQ+NEXOBS;i++)
 	{
 		temp.datarecord[index].Phase[i]		=-predddata.datarecord[index].Phase[i];
 		temp.datarecord[index].PsRange[i]	=-predddata.datarecord[index].PsRange[i];
@@ -2467,7 +2468,7 @@ void Position::ChangePredataByNewRef(DdData& predddata,int newRef)
 		temp.satePosBase[index].sateXYZ[i]	=predddata.refSatPos_Base[i];
 		temp.satePosRov[index].sateXYZ[i]	=predddata.refSatPos_Rov[i];
 	}
-		
+
 
 	for (int i=0;i<predddata.pairNum;i++)
 	{
@@ -2484,14 +2485,14 @@ void Position::ChangePredataByNewRef(DdData& predddata,int newRef)
 }
 
 /*
- *form the vc matrix of combination obs
- *I:
- *	coef k*k	the coef of combination   k=1,2,3
- *	Qyy	the cofactor or vc mat of non-combined obs 
- *	flag	the number of obs = k
- *O:
- *	Qyy		the vc mat of  combination 	
- */
+*form the vc matrix of combination obs
+*I:
+*	coef k*k	the coef of combination   k=1,2,3
+*	Qyy	the cofactor or vc mat of non-combined obs 
+*	flag	the number of obs = k
+*O:
+*	Qyy		the vc mat of  combination 	
+*/
 void Position::VcmatCom(math::matrix<double> coef,math::matrix<double>& Qyy,int flag)
 {
 	math::matrix<double>temp(flag,flag);
@@ -2499,17 +2500,17 @@ void Position::VcmatCom(math::matrix<double> coef,math::matrix<double>& Qyy,int 
 	Qyy	=coef*temp*(~coef);
 }
 /*
-	Find the closest Eph to time t
-	I:
-		ephdata	include all sate ephemeris data
-		ephNum  number of ephemeris data 
-		prn           
-		t				second of week 
-	O:
-		ephpos   the position of eph wanted,-1 if not found
-	return:		false if not found
-	Note:		"t" should be in the same system as the time in ephdata
-	
+Find the closest Eph to time t
+I:
+ephdata	include all sate ephemeris data
+ephNum  number of ephemeris data 
+prn           
+t				second of week 
+O:
+ephpos   the position of eph wanted,-1 if not found
+return:		false if not found
+Note:		"t" should be in the same system as the time in ephdata
+
 */
 bool Position::FindEph(BroadEphData* ephdata,int ephNum, int prn,double t,int& ephpos)
 {
@@ -2532,8 +2533,8 @@ bool Position::FindEph(BroadEphData* ephdata,int ephNum, int prn,double t,int& e
 			}
 			if (ephpos==-1) 
 			{
-					ephpos=i;
-					predte=dte;
+				ephpos=i;
+				predte=dte;
 			}
 			if(dte<predte)
 			{
@@ -2609,58 +2610,58 @@ bool Position::FindEph(BroadEphDataGlo* ephdata,int ephNum, int prn,double t,int
 	return true;
 }
 /*
-	calibrate the receiver clock error and tropsphere delay(UNB3)
+calibrate the receiver clock error and tropsphere delay(UNB3)
 */
 void Position::CalibRecClkErr(ObsEpochData& lastData,SppInfo sppinfo)
 {
 	for(int i=0;i<lastData.sateNum;i++)
 	{
-			
+
 		for(int j=0;j<NFREQ+NEXOBS;j++)
 		{
 			double freq=Freq(lastData.obsdatarecord->PRN, j);//
 			double lamda=CLIGHT/freq;//////add the lamda
-			
+
 			lastData.obsdatarecord[i].Phase[j]			=lastData.obsdatarecord[i].Phase[j]-sppinfo.tropCorr[i]/lamda-sppinfo.dtr/lamda;
 
 			lastData.obsdatarecord[i].PsRange[j]		=lastData.obsdatarecord[i].PsRange[j]-sppinfo.tropCorr[i]-sppinfo.dtr;
-		
+
 		}
 
 	}
 }
 
 /*
-	calibrate the sate clock error 
+calibrate the sate clock error 
 */
 void Position::CalibSateClkErr(ObsEpochData& lastData,SppInfo sppinfo)
 {
 	for(int i=0;i<lastData.sateNum;i++)
 	{
-			
+
 		for(int j=0;j<NFREQ+NEXOBS;j++)
 		{
 			double freq=Freq(lastData.obsdatarecord[i].PRN, j);//
 			double lamda=CLIGHT/freq;//////add the lamda
-			
+
 			lastData.obsdatarecord[i].Phase[j]			=lastData.obsdatarecord[i].Phase[j]+sppinfo.sateclkerr[i]*lamda;
 
 			lastData.obsdatarecord[i].PsRange[j]		=lastData.obsdatarecord[i].PsRange[j]+sppinfo.sateclkerr[i]*CLIGHT;
-		
+
 		}
 
 	}
 }
 
 /*
- *get the obs wanted.
- *due to the mixture of multi-system, get the obs we want
- *I:
- *	
- *O:
- *
- *Return
- */
+*get the obs wanted.
+*due to the mixture of multi-system, get the obs we want
+*I:
+*	
+*O:
+*
+*Return
+*/
 ObsEpochData Position:: GetSysData(int sysid,ObsEpochData epochdata)
 {
 	int prnfirst=1+(sysid-1)*50;
@@ -2688,27 +2689,27 @@ ObsEpochData Position:: GetSysData(int sysid,ObsEpochData epochdata)
 	return temp;
 }
 /*
-	single point position
-	I:
-		ephheader	determine the ionos correction 
-		ephdata		all eph data in N file 
-		epochdata	all obs data of one epoch
-		t					the obs time
-		sppctrl			include the flag of ionosphere dalay		0=IF  1=Klobuchar  2=fixed(defalut) 3=float
-							the mask elevation (default:10.0 deg)
-							index of frequency								
+single point position
+I:
+ephheader	determine the ionos correction 
+ephdata		all eph data in N file 
+epochdata	all obs data of one epoch
+t					the obs time
+sppctrl			include the flag of ionosphere dalay		0=IF  1=Klobuchar  2=fixed(defalut) 3=float
+the mask elevation (default:10.0 deg)
+index of frequency								
 
-	O:
-		sppinfo			the information of SPP, including the postion of receiver , the positon of all sates used,
-							all the emission time of signal and the prn list of all sates used
-	NOTE£º
-		correct the tropsphere delay with UNB3 by default 
-		observation model:	PRobs		= rho+Cdtr-Cdts+T+I+¡­¡­
+O:
+sppinfo			the information of SPP, including the postion of receiver , the positon of all sates used,
+all the emission time of signal and the prn list of all sates used
+NOTE£º
+correct the tropsphere delay with UNB3 by default 
+observation model:	PRobs		= rho+Cdtr-Cdts+T+I+¡­¡­
 */
 bool Position::StandPosition(BroadEphHeader ephheader,BroadEphData* ephdata,ObsEpochData epochdata,int ephNum,SppCtrl sppctrl,SppInfo& sppinfo,ObsEpochData& lastData)
 {
 	//CalcSatePos	calcsate;
-   // InitPtr(sppinfo.recPos,3);
+	// InitPtr(sppinfo.recPos,3);
 	double freq[3];
 	Freq(sppctrl.sysid,	freq);
 
@@ -2734,11 +2735,11 @@ bool Position::StandPosition(BroadEphHeader ephheader,BroadEphData* ephdata,ObsE
 	int count=0;
 	math::matrix<double> positionSate(3,1);
 	math::matrix<double>	satevel(3,1);
-	
-	
+
+
 	double   ratiofreq=0.0;
 	if (sppctrl.ionoFlag!=0)	ratiofreq=FreqSys(sppctrl.sysid,0)/FreqSys(sppctrl.sysid,sppctrl.freqIndex);
-	
+
 	int loopctrl=3;// >=3
 	int isShrink=0;
 	for(int i=0;i<lastData.sateNum;i++)
@@ -2775,11 +2776,11 @@ bool Position::StandPosition(BroadEphHeader ephheader,BroadEphData* ephdata,ObsE
 	while( ! isOutLoop)
 	{
 		if(loopNum==loopctrl)
-			{
-				/*	select the satellites based on elevation	*/
-				if (! SelectSateOnEle(sppctrl.maskEle,sppinfo, lastData) ) return false;//if satenum left<4,return false
-			}
-		
+		{
+			/*	select the satellites based on elevation	*/
+			if (! SelectSateOnEle(sppctrl.maskEle,sppinfo, lastData) ) return false;//if satenum left<4,return false
+		}
+
 		count=sppinfo.validnum;
 		/* weight matrix and y vector*/
 		math::matrix<double> weightMat(count,count);
@@ -2788,7 +2789,7 @@ bool Position::StandPosition(BroadEphHeader ephheader,BroadEphData* ephdata,ObsE
 		/*  design matrix  */
 		column	=(sppctrl.ionoFlag==3?5:4);
 		math::matrix<double> desMat(count,column);
-		
+
 		//design and weight matrix 
 		for(int i=0;i<count;i++)
 		{
@@ -2802,13 +2803,13 @@ bool Position::StandPosition(BroadEphHeader ephheader,BroadEphData* ephdata,ObsE
 			rsRange	=Norm(pos,3);
 			for(int j=0;j<3;j++) desMat(i,j)=pos[j]/rsRange;
 			desMat(i,3)	=1.0;
-				
+
 			// sagnac effect(earth rotation) correction on distance
 			if (loopNum>0) rsRange+=geodistcorr(sppinfo.satePos[i],sppinfo.recPos);
-			
+
 			//ionosphere part  
 			if(sppctrl.ionoFlag==3) desMat(i,5)=SQ(freq[0])/SQ(freq[sppctrl.freqIndex]);
-		
+
 			int coef[3];
 			InitPtr(coef,3);
 			for(int j=0;j<3;j++) pos[j]=lastData.obsdatarecord[i].PsRange[j];
@@ -2838,15 +2839,15 @@ bool Position::StandPosition(BroadEphHeader ephheader,BroadEphData* ephdata,ObsE
 			}
 			//ionosphere correction
 			obs	-=		(sppctrl.ionoFlag==1 && loopNum>1  )?
-													ionos.Klobuchar(ionopara,epochdata.sec,sppinfo.recPos, sppinfo.azi[i], sppinfo.ele[i])  : 0.0;
-		
-		
+				ionos.Klobuchar(ionopara,epochdata.sec,sppinfo.recPos, sppinfo.azi[i], sppinfo.ele[i])  : 0.0;
+
+
 			//troposphere correction
-				XYZ2BLH(sppinfo.recPos,Sysid(sppinfo.prnList[i]),pos);
-				sppinfo.tropCorr[i]=loopNum>1? trops.TropsUNB3(sppinfo.ele[i],pos[0]*R2D,pos[2],doy(sppctrl.sysid,lastData.week,lastData.sec),sppinfo.mapWet[i]) :0.0;
-				if(fabs(sppinfo.tropCorr[i])>100.0) sppinfo.tropCorr[i]=0.0;
-				obs	-=		sppinfo.tropCorr[i];
-				//cout<<trops.TropsUNB3(sppinfo.ele[i],pos[0]*R2D,pos[2],doy(sppctrl.sysid,lastData.week,lastData.sec),sppinfo.mapWet[i])<<endl;
+			XYZ2BLH(sppinfo.recPos,Sysid(sppinfo.prnList[i]),pos);
+			sppinfo.tropCorr[i]=loopNum>1? trops.TropsUNB3(sppinfo.ele[i],pos[0]*R2D,pos[2],doy(sppctrl.sysid,lastData.week,lastData.sec),sppinfo.mapWet[i]) :0.0;
+			if(fabs(sppinfo.tropCorr[i])>100.0) sppinfo.tropCorr[i]=0.0;
+			obs	-=		sppinfo.tropCorr[i];
+			//cout<<trops.TropsUNB3(sppinfo.ele[i],pos[0]*R2D,pos[2],doy(sppctrl.sysid,lastData.week,lastData.sec),sppinfo.mapWet[i])<<endl;
 			//sate err &&	//code correction
 			obs	+=	CLIGHT*(sppinfo.sateclkerr[i]-sppinfo.codeCorr[i]);
 			obs	-=		sppinfo.dtr;
@@ -2861,17 +2862,25 @@ bool Position::StandPosition(BroadEphHeader ephheader,BroadEphData* ephdata,ObsE
 			pos[i]=xhat(i,0);
 		}
 		sppinfo.dtr	+=xhat(3,0);
-		
+
 		if( (loopNum>0 && AbsMax(pos,3)<1e-5 && xhat(3,0)<1e-5) || loopNum>9 )
 		{
 			isOutLoop=true;
-			math::matrix<double>d=GetBlockMat(CholeskyInv(~desMat*desMat),1,3,1,3,2);
+			DMatrix Dop=CholeskyInv(~desMat*desMat);
+			math::matrix<double>d=GetBlockMat(Dop,1,3,1,3,2);
+			double BLH[3];
+			XYZ2BLH(sppinfo.recPos,1,BLH);
+			d=Qxyz2Qneu(d,BLH[0],BLH[1]);
 			sppinfo.gdop=traceMat(d);
 			sppinfo.gdop=sqrt(sppinfo.gdop);
-			//math::matrix<double> residual;
-			//residual=yObs-desMat*xhat;
-			/* cout<<"------------residual---------------"<<endl;
-			cout<<~(residual); */
+			double pdop=sqrt(traceMat(Dop));
+			double  hdop=sqrt(d(0,0)+d(1,1));
+			double  vdop=sqrt(d(2,2));
+			fstream DopFlie;
+			DopFlie.open("DopFlie.txt",ios::app);
+			DopFlie<<setiosflags(ios::fixed)<<setw(7)<<setprecision(3)<<pdop
+					<<setw(7)<<setprecision(3)<<sppinfo.gdop
+					<<setw(7)<<setprecision(3)<<vdop<<endl;
 #if OUTSPP==1
 			for(int i=0;i<3;i++)
 			{	
@@ -2905,7 +2914,7 @@ bool Position:: baseStn(SppInfo& baseStnInfo,BroadEphData* ephdata,ObsEpochData 
 		XYZ2BLH(baseStnInfo.recPos,Sysid(baseStnInfo.prnList[i]),pos);
 		baseStnInfo.tropCorr[i]=trops.TropsUNB3(baseStnInfo.ele[i],pos[0]*R2D,pos[2],doy(baseCtrl.sysid,lastData.week,lastData.sec),baseStnInfo.mapWet[i]);
 	}
-	
+
 	/*	select the satellites based on elevation  */
 	if (!SelectSateOnEle(baseCtrl.maskEle,baseStnInfo, lastData) ) return false;//if satenum left<4,return false
 
@@ -3009,13 +3018,13 @@ bool Position::StandPosition(BroadEphHeader ephheader,BroadEphDataGlo* ephdata,O
 	int column=0;
 	while( ! isOutLoop)
 	{
-		
+
 		if(loopNum==loopctrl)
-			{
-				/*	select the satellites based on elevation, and change the lastdata 	*/
-				if (! SelectSateOnEleGlo(sppctrl.maskEle,sppinfo, lastData) ) return false;
-			}
-		
+		{
+			/*	select the satellites based on elevation, and change the lastdata 	*/
+			if (! SelectSateOnEleGlo(sppctrl.maskEle,sppinfo, lastData) ) return false;
+		}
+
 		count=sppinfo.validnum;
 		/* weight matrix and y vector*/
 		math::matrix<double> weightMat(count,count);
@@ -3030,24 +3039,24 @@ bool Position::StandPosition(BroadEphHeader ephheader,BroadEphDataGlo* ephdata,O
 			double obs	=0.0;
 			for (int ii=0;ii<3;ii++)	pos[ii]=sppinfo.satePos[i].sateXYZ[ii];
 			if (loopNum>1) XYZ2RAH(sppinfo.recPos,2,pos,sppinfo.ele[i],sppinfo.azi[i]);
-			
+
 			weightMat(i,i)				=loopNum>1?weightfactor(sppinfo.ele[i],1)  :1.0;//SQ(sppinfo.ele[i])
 			double		rsRange		=0.0;
 			for( j=0;j<3;j++)	pos[j]		=sppinfo.recPos[j]-sppinfo.satePos[i].sateXYZ[j];
 			rsRange	=Norm(pos,3);
 			for( j=0;j<3;j++) desMat(i,j)=pos[j]/rsRange;
 			desMat(i,3)	=1.0;
-					
+
 			if (loopNum>1)
 			{
 				// sagnac effect(earth rotation) correction on distance
 				double sagnac=geodistcorr(sppinfo.satePos[i],sppinfo.recPos);
 				rsRange+=sagnac;//>0.0?sagnac:0.0;
 			}
-			
+
 			//ionospere part  
 			//if(sppctrl.ionoFlag==3) desMat(i,5)=SQ(freq[0])/SQ(freq[sppctrl.freqIndex]);
-		
+
 			for( j=0;j<3;j++)
 			{
 				pos[j]=lastData.obsdatarecord[i].PsRange[j];
@@ -3065,38 +3074,38 @@ bool Position::StandPosition(BroadEphHeader ephheader,BroadEphDataGlo* ephdata,O
 			}
 			//ionosphere correction
 			/* obs	-=		(sppctrl.ionoFlag==1 && loopNum>1  )?
-													ionos.Klobuchar(ionopara,epochdata.sec,sppinfo.recPos, sppinfo.azi[i], sppinfo.ele[i])  : 0.0; */
-		
+			ionos.Klobuchar(ionopara,epochdata.sec,sppinfo.recPos, sppinfo.azi[i], sppinfo.ele[i])  : 0.0; */
+
 			//troposphere correction
-				XYZ2BLH(sppinfo.recPos,Sysid(sppinfo.prnList[i]),pos);
-				sppinfo.tropCorr[i]=loopNum>1? trops.TropsUNB3(sppinfo.ele[i],pos[0]*R2D,pos[2],doy(sppctrl.sysid,lastData.week,lastData.sec),sppinfo.mapWet[i]) :0.0;
-				obs	-=		sppinfo.tropCorr[i];
+			XYZ2BLH(sppinfo.recPos,Sysid(sppinfo.prnList[i]),pos);
+			sppinfo.tropCorr[i]=loopNum>1? trops.TropsUNB3(sppinfo.ele[i],pos[0]*R2D,pos[2],doy(sppctrl.sysid,lastData.week,lastData.sec),sppinfo.mapWet[i]) :0.0;
+			obs	-=		sppinfo.tropCorr[i];
 			//sate err &&	//code correction
 			obs	+=	CLIGHT*(sppinfo.sateclkerr[i]-sppinfo.codeCorr[i]);
 			obs	-=		sppinfo.dtr;
 			/* negative pseudorange residual */
 			yObs(i,0)					=obs-rsRange;
 			/* obs-(rsRange+tropscorr+ionocorr+CLIGHT*dtr0-CLIGHT*sateErr) */
-			 
+
 		}
 		math::matrix<double> xhat(column,1);
 		xhat=CholeskyInv((~desMat)*weightMat*desMat)* ( ((~desMat)*weightMat*yObs) );
-		
-		
+
+
 		for( i=0;i<3;i++)
 		{	
 			sppinfo.recPos[i]	+=xhat(i,0);
 			pos[i]=(xhat(i,0));
 		}
 		sppinfo.dtr	+=xhat(3,0);
-		
+
 		if( (loopNum>0 && AbsMax(pos,3)<1e-5) || loopNum>9 )
 		{
 			isOutLoop=true;
-			
+
 			math::matrix<double> residual;
 			residual=yObs-desMat*xhat;
-		/*	cout<<"------------residual---------------"<<endl;
+			/*	cout<<"------------residual---------------"<<endl;
 			cout<<~(residual);*/
 			for( i=0;i<3;i++)
 			{	
@@ -3187,30 +3196,30 @@ bool Position:: calcAllSatePos(SppInfoGlo& baseStnInfo,BroadEphDataGlo* ephdata,
 /* end Glonass*/
 
 /*
- *The main of this class includes SPP, cycle slip, relative position...
- *I:
- *	BaseData		the Base station data
- *	RoverData		the rover station data
- *	ephheader	the ephemeris header
- *	ephdata		the ephemeris data, not including the GLONASS(2015.8.5)
- *	nSate			the number of satellites in ephdata
- *	sppctrl			the spp control 
- *	sppinfo			the rover station info of spp
- *	baseinfo		the base station info
- *O:
- *	NULL		reserve for the undefined input and output data, to be constructed
- *Note:
- *
- */
+*The main of this class includes SPP, cycle slip, relative position...
+*I:
+*	BaseData		the Base station data
+*	RoverData		the rover station data
+*	ephheader	the ephemeris header
+*	ephdata		the ephemeris data, not including the GLONASS(2015.8.5)
+*	nSate			the number of satellites in ephdata
+*	sppctrl			the spp control 
+*	sppinfo			the rover station info of spp
+*	baseinfo		the base station info
+*O:
+*	NULL		reserve for the undefined input and output data, to be constructed
+*Note:
+*
+*/
 int Position::PositionMain( ObsEpochData epochData1, ObsEpochData epochData2, BroadEphHeader ephheader, BroadEphData* ephdata,int nSate,
-									SppCtrl sppctrl,SppInfo& sppinfo,SppInfo& baseInfo)
+	SppCtrl sppctrl,SppInfo& sppinfo,SppInfo& baseInfo)
 {
-	
+
 	ObsEpochData BaseData,RoverData;
 	DdData dddataPre;
 	DdData dddataCurr;
 	SdData lastSdData;
-	
+
 	StandPosition(ephheader,ephdata,epochData1,nSate,sppctrl,sppinfo,RoverData);
 
 	baseStn(baseInfo,ephdata,epochData2,BaseData,nSate,sppctrl);
@@ -3221,7 +3230,7 @@ int Position::PositionMain( ObsEpochData epochData1, ObsEpochData epochData2, Br
 	}
 
 	int refPrn=0;
-//	SelectRefSate(sppinfo,baseInfo,10.0,BaseData,RoverData,lastSdData,dddataCurr);
+	//	SelectRefSate(sppinfo,baseInfo,10.0,BaseData,RoverData,lastSdData,dddataCurr);
 
 	for (int ij=0;ij<sppinfo.validnum;ij++)
 	{
@@ -3233,9 +3242,9 @@ int Position::PositionMain( ObsEpochData epochData1, ObsEpochData epochData2, Br
 
 /*****************************************post  process********************************************************/
 /*
- *post precess data        temporarily
- *
- */
+*post precess data        temporarily
+*
+*/
 
 /*Qdd is Pdd*/
 void Position:: CrossCode( int refpos,SdData lastSdData,	math::matrix<double>&Qdd0,math::matrix<double>&Qdd1)
@@ -3244,7 +3253,7 @@ void Position:: CrossCode( int refpos,SdData lastSdData,	math::matrix<double>&Qd
 	double c02=0.250,c12=0.270;
 	math::matrix<double>Qzd(lastSdData.satnum,lastSdData.satnum);
 	for (int ik=0;ik<lastSdData.satnum;ik++) Qzd(ik,ik)=SQ( c0/(sin(lastSdData.ele[ik])+c1));
-	
+
 	math::matrix<double>Qzd1(lastSdData.satnum,lastSdData.satnum);
 	for (int ik=0;ik<lastSdData.satnum;ik++) Qzd1(ik,ik)=SQ( c02/(sin(lastSdData.ele[ik])+c12));
 
@@ -3282,129 +3291,129 @@ void Position:: CrossCode( int refpos,SdData lastSdData,	math::matrix<double>&Qd
 }
 
 void Position:: PostProcess0916(int numEpoch,SdData* sdData,int* satprn,DdCtrl ddctrl)
- {
-	 int maxNum=1650,  interval=20;
-	 math::matrix<double>Ne;//=new math::matrix<double>[maxNum];
-	 math::matrix<double>Le;//=new math::matrix<double>[maxNum];
-	 math::matrix<double>Nr;//=new math::matrix<double>[maxNum];
-	 math::matrix<double>Lr;//=new math::matrix<double>[maxNum];
-	 //=new math::matrix<double>[maxNum];
+{
+	int maxNum=1650,  interval=20;
+	math::matrix<double>Ne;//=new math::matrix<double>[maxNum];
+	math::matrix<double>Le;//=new math::matrix<double>[maxNum];
+	math::matrix<double>Nr;//=new math::matrix<double>[maxNum];
+	math::matrix<double>Lr;//=new math::matrix<double>[maxNum];
+	//=new math::matrix<double>[maxNum];
 	DdAmbInfo ambinfo;
-	 int i,j,k,cnt=0;
+	int i,j,k,cnt=0;
 
-	 
-	 math::matrix<double> Rota(3,3);
-	 double BLH[3],XYZ[3];
-	 XYZ[0]=-2364333.4909;XYZ[1]=4870287.3243;XYZ[2]=-3360809.5628; 
-	 math::matrix<double> xt(3,1);
+
+	math::matrix<double> Rota(3,3);
+	double BLH[3],XYZ[3];
+	XYZ[0]=-2364333.4909;XYZ[1]=4870287.3243;XYZ[2]=-3360809.5628; 
+	math::matrix<double> xt(3,1);
 	xt(0,0)=-2364333.4909;xt(1,0)=4870287.3243;xt(2,0)=-3360809.5628; 
-	 XYZ2BLH(XYZ,1,BLH);
-	 double sinB=sin(BLH[0]),cosB=cos(BLH[0]);
-	 double sinL=sin(BLH[1]),cosL=cos(BLH[1]);
-	 Rota(0,0)=-sinB*cosL;	Rota(0,1)=-sinB*sinL;		Rota(0,2)=cosB;
-	 Rota(1,0)=-sinL;				Rota(1,1)=cosL;				Rota(1,2)=0.0;
-	 Rota(2,0)=cosL*cosB;		Rota(2,1)=cosB*sinL;		Rota(2,2)=sinB;
-	 
-	 math::matrix<double>sige;
-	 math::matrix<double>sigr;
+	XYZ2BLH(XYZ,1,BLH);
+	double sinB=sin(BLH[0]),cosB=cos(BLH[0]);
+	double sinL=sin(BLH[1]),cosL=cos(BLH[1]);
+	Rota(0,0)=-sinB*cosL;	Rota(0,1)=-sinB*sinL;		Rota(0,2)=cosB;
+	Rota(1,0)=-sinL;				Rota(1,1)=cosL;				Rota(1,2)=0.0;
+	Rota(2,0)=cosL*cosB;		Rota(2,1)=cosB*sinL;		Rota(2,2)=sinB;
 
-	 math::matrix<double>eta0;
-	 math::matrix<double>eta1;
-	 fstream fout;
-	 fout.open("resultCross.txt",ios::out);
-	 for (i=0;i<maxNum;i++)
-	 {
-		 if (maxNum==50000) break;
-		 int referPrn=satprn[i];
-		 if(sdData[i].satnum==0)  continue;
-		 if (i==maxNum-interval-1) break;
-		 math::matrix<double>Pdd0;
-		 math::matrix<double>Pdd1;
-		 CrossCode(  GetPos(sdData[i].prn,referPrn,sdData[i].satnum),sdData[i],Pdd0,Pdd1 );
+	math::matrix<double>sige;
+	math::matrix<double>sigr;
+
+	math::matrix<double>eta0;
+	math::matrix<double>eta1;
+	fstream fout;
+	fout.open("resultCross.txt",ios::out);
+	for (i=0;i<maxNum;i++)
+	{
+		if (maxNum==50000) break;
+		int referPrn=satprn[i];
+		if(sdData[i].satnum==0)  continue;
+		if (i==maxNum-interval-1) break;
+		math::matrix<double>Pdd0;
+		math::matrix<double>Pdd1;
+		CrossCode(  GetPos(sdData[i].prn,referPrn,sdData[i].satnum),sdData[i],Pdd0,Pdd1 );
 		// Ne[i]=ZeroMat(3,3); Le[i]=ZeroMat(3,1);Nr[i]=ZeroMat(3,3); Lr[i]=ZeroMat(3,1);
 		// for (j=i;j<i+interval;j++)
 		// {
-		    j=i;
-			 
-			 int referPos=GetPos(sdData[j].prn,referPrn,sdData[j].satnum);
-			 DdData dddataCurr;	 DdObsInfo ddobsinfo;
-			 DoubleDiff(referPrn,referPos,sdData[i],dddataCurr);
-			 dddataCurr=ComObsPhsCod(ddctrl,ddobsinfo,ambinfo,dddataCurr);
-			 if(sdData[i].satnum-dddataCurr.pairNum!=1) continue;
-			 int obsNum	=ddobsinfo.SumCod();//the number of all obs in one system at current epoch
-			math::matrix<double>y(obsNum,1);
-			math::matrix<double>V(obsNum,1);
-			 math::matrix<double> DesMatPos(obsNum,3);
-			 math::matrix<double> L(obsNum,1);
-			 FormDesMatPos(DesMatPos,L,dddataCurr,ddobsinfo,ddctrl);
-			 FormResidual(L,y,dddataCurr,ddctrl,ambinfo);
+		j=i;
 
-			 if (Pdd0.RowNo()!=DesMatPos.RowNo() ||Pdd1.RowNo()!=DesMatPos.RowNo()||Pdd1.RowNo()!=L.RowNo())
-			 {
-				 cout<<i<<"  error!!!"<<endl;
-				 continue;
-			 }
-			 Ne=(~DesMatPos)*Pdd0*DesMatPos;
-			 Nr=(~DesMatPos)*Pdd1*DesMatPos;
-			 Le=(~DesMatPos)*Pdd0*L;
-			 Lr=(~DesMatPos)*Pdd1*L;
-			 
+		int referPos=GetPos(sdData[j].prn,referPrn,sdData[j].satnum);
+		DdData dddataCurr;	 DdObsInfo ddobsinfo;
+		DoubleDiff(referPrn,referPos,sdData[i],dddataCurr);
+		dddataCurr=ComObsPhsCod(ddctrl,ddobsinfo,ambinfo,dddataCurr);
+		if(sdData[i].satnum-dddataCurr.pairNum!=1) continue;
+		int obsNum	=ddobsinfo.SumCod();//the number of all obs in one system at current epoch
+		math::matrix<double>y(obsNum,1);
+		math::matrix<double>V(obsNum,1);
+		math::matrix<double> DesMatPos(obsNum,3);
+		math::matrix<double> L(obsNum,1);
+		FormDesMatPos(DesMatPos,L,dddataCurr,ddobsinfo,ddctrl);
+		FormResidual(L,y,dddataCurr,ddctrl,ambinfo);
+
+		if (Pdd0.RowNo()!=DesMatPos.RowNo() ||Pdd1.RowNo()!=DesMatPos.RowNo()||Pdd1.RowNo()!=L.RowNo())
+		{
+			cout<<i<<"  error!!!"<<endl;
+			continue;
+		}
+		Ne=(~DesMatPos)*Pdd0*DesMatPos;
+		Nr=(~DesMatPos)*Pdd1*DesMatPos;
+		Le=(~DesMatPos)*Pdd0*L;
+		Lr=(~DesMatPos)*Pdd1*L;
+
 		// }
-		 
-		 Ne=CholeskyInv(Ne);eta0=-(~Le)*Ne*Le;
-			 Le=(Ne*Le);
-		 cout<<~(DesMatPos*(Le+xt));
-		 sige= eta0+~L*Pdd0*L;
 
-		 Le=~XYZ2NEU(Le,BLH[0],BLH[1]);
-		 Ne=~ diagElemMat(Rota*Ne*(~Rota));
+		Ne=CholeskyInv(Ne);eta0=-(~Le)*Ne*Le;
+		Le=(Ne*Le);
+		cout<<~(DesMatPos*(Le+xt));
+		sige= eta0+~L*Pdd0*L;
+
+		Le=~XYZ2NEU(Le,BLH[0],BLH[1]);
+		Ne=~ diagElemMat(Rota*Ne*(~Rota));
 		// Ne=1.0/(obsNum-3)*sige(0,0)*Ne;
 
-		 Nr=CholeskyInv(Nr);eta1=-(~Lr)*Nr*Lr;
-		 Lr=(Nr*Lr);
-		 sigr= eta1+~L*Pdd1*L;
+		Nr=CholeskyInv(Nr);eta1=-(~Lr)*Nr*Lr;
+		Lr=(Nr*Lr);
+		sigr= eta1+~L*Pdd1*L;
 
-		 Lr=~XYZ2NEU(Lr,BLH[0],BLH[1]);
-		 Nr=~  diagElemMat(Rota*Nr*(~Rota));
-		 //Nr=sigr(0,0)/(obsNum-3)*Nr;
+		Lr=~XYZ2NEU(Lr,BLH[0],BLH[1]);
+		Nr=~  diagElemMat(Rota*Nr*(~Rota));
+		//Nr=sigr(0,0)/(obsNum-3)*Nr;
 
-		 cnt++;
-		 if (i%1000==0)
-		 {
-			 cout<<"DD: "<<i<<"/"<<40000<<endl;
-		 }
-	//	 cout<<i<<"  "<<Le[i].Norm()<<"  "<<Lr[i].Norm() <<endl;
+		cnt++;
+		if (i%1000==0)
+		{
+			cout<<"DD: "<<i<<"/"<<40000<<endl;
+		}
+		//	 cout<<i<<"  "<<Le[i].Norm()<<"  "<<Lr[i].Norm() <<endl;
 		// cout<<(Le[i])<<Ne[i]<<endl;  cout<<(Lr[i])<<Nr[i]<<endl;
-		
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,0);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,1);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,2);
 
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,0);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,1);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,2);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,0);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,1);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,2);
 
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,0);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,1);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,2);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,0);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,1);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,2);
 
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,0);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,1);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,2);
-		 fout<<endl;
-	 }//end i
-	 
-	 fout.close();
-	 int how;
- }
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,0);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,1);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,2);
 
- void Position:: TimeCrossCode( int refpos,SdData lastSdData,	math::matrix<double>&Qdd0,math::matrix<double>&Qdd1)
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,0);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,1);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,2);
+		fout<<endl;
+	}//end i
+
+	fout.close();
+	int how;
+}
+
+void Position:: TimeCrossCode( int refpos,SdData lastSdData,	math::matrix<double>&Qdd0,math::matrix<double>&Qdd1)
 {
 	double c0=0.370,c1=0.180;
 	double c02=0.370,c12=0.180;
 	math::matrix<double>Qzd(lastSdData.satnum,lastSdData.satnum);
 	for (int ik=0;ik<lastSdData.satnum;ik++) Qzd(ik,ik)=SQ( c0/(sin(lastSdData.ele[ik])+c1));
-	
+
 	math::matrix<double>Qzd1(lastSdData.satnum,lastSdData.satnum);
 	for (int ik=0;ik<lastSdData.satnum;ik++) Qzd1(ik,ik)=SQ( c02/(sin(lastSdData.ele[ik])+c12));
 
@@ -3451,146 +3460,146 @@ void Position:: PostProcess0916(int numEpoch,SdData* sdData,int* satprn,DdCtrl d
 }
 
 
- void Position:: PostProcessTimeCross(int numEpoch,SdData* sdData,int* satprn,DdCtrl ddctrl)
- {
-	 int maxNum=1650,  interval=20;
-	 math::matrix<double>Ne;//=new math::matrix<double>[maxNum];
-	 math::matrix<double>Le;//=new math::matrix<double>[maxNum];
-	 math::matrix<double>Nr;//=new math::matrix<double>[maxNum];
-	 math::matrix<double>Lr;//=new math::matrix<double>[maxNum];
-	 //=new math::matrix<double>[maxNum];
-	 DdAmbInfo ambinfo;
-	 int i,j,k,cnt=0;
+void Position:: PostProcessTimeCross(int numEpoch,SdData* sdData,int* satprn,DdCtrl ddctrl)
+{
+	int maxNum=1650,  interval=20;
+	math::matrix<double>Ne;//=new math::matrix<double>[maxNum];
+	math::matrix<double>Le;//=new math::matrix<double>[maxNum];
+	math::matrix<double>Nr;//=new math::matrix<double>[maxNum];
+	math::matrix<double>Lr;//=new math::matrix<double>[maxNum];
+	//=new math::matrix<double>[maxNum];
+	DdAmbInfo ambinfo;
+	int i,j,k,cnt=0;
 
 
-	 math::matrix<double> Rota(3,3);
-	 double BLH[3],XYZ[3];
-	 XYZ[0]=-2364333.4909;XYZ[1]=4870287.3243;XYZ[2]=-3360809.5628; 
-	 math::matrix<double> xt(3,1);
-	 xt(0,0)=-2364333.4909;xt(1,0)=4870287.3243;xt(2,0)=-3360809.5628; 
-	 XYZ2BLH(XYZ,1,BLH);
-	 double sinB=sin(BLH[0]),cosB=cos(BLH[0]);
-	 double sinL=sin(BLH[1]),cosL=cos(BLH[1]);
-	 Rota(0,0)=-sinB*cosL;	Rota(0,1)=-sinB*sinL;		Rota(0,2)=cosB;
-	 Rota(1,0)=-sinL;				Rota(1,1)=cosL;				Rota(1,2)=0.0;
-	 Rota(2,0)=cosL*cosB;		Rota(2,1)=cosB*sinL;		Rota(2,2)=sinB;
+	math::matrix<double> Rota(3,3);
+	double BLH[3],XYZ[3];
+	XYZ[0]=-2364333.4909;XYZ[1]=4870287.3243;XYZ[2]=-3360809.5628; 
+	math::matrix<double> xt(3,1);
+	xt(0,0)=-2364333.4909;xt(1,0)=4870287.3243;xt(2,0)=-3360809.5628; 
+	XYZ2BLH(XYZ,1,BLH);
+	double sinB=sin(BLH[0]),cosB=cos(BLH[0]);
+	double sinL=sin(BLH[1]),cosL=cos(BLH[1]);
+	Rota(0,0)=-sinB*cosL;	Rota(0,1)=-sinB*sinL;		Rota(0,2)=cosB;
+	Rota(1,0)=-sinL;				Rota(1,1)=cosL;				Rota(1,2)=0.0;
+	Rota(2,0)=cosL*cosB;		Rota(2,1)=cosB*sinL;		Rota(2,2)=sinB;
 
-	 math::matrix<double>sige;
-	 math::matrix<double>sigr;
+	math::matrix<double>sige;
+	math::matrix<double>sigr;
 
-	 math::matrix<double>eta0;
-	 math::matrix<double>eta1;
-	 fstream fout;
-	 fout.open("resultTimeCorr.txt",ios::out);
-	 for (i=0;i<maxNum;i++)
-	 {
-		 if (maxNum==50000) break;
-		 int referPrn=satprn[i],referPrn1=satprn[i+1];
-		 if(sdData[i].satnum==0 || sdData[i+1].satnum==0 )  continue;
-		 if (i==maxNum-interval-1) break;
-		 math::matrix<double>Pdd0;
-		 math::matrix<double>Pdd1;
-		 TimeCrossCode(  GetPos(sdData[i].prn,referPrn,sdData[i].satnum),sdData[i],Pdd0,Pdd1 );
-		 j=i;
+	math::matrix<double>eta0;
+	math::matrix<double>eta1;
+	fstream fout;
+	fout.open("resultTimeCorr.txt",ios::out);
+	for (i=0;i<maxNum;i++)
+	{
+		if (maxNum==50000) break;
+		int referPrn=satprn[i],referPrn1=satprn[i+1];
+		if(sdData[i].satnum==0 || sdData[i+1].satnum==0 )  continue;
+		if (i==maxNum-interval-1) break;
+		math::matrix<double>Pdd0;
+		math::matrix<double>Pdd1;
+		TimeCrossCode(  GetPos(sdData[i].prn,referPrn,sdData[i].satnum),sdData[i],Pdd0,Pdd1 );
+		j=i;
 
-		 int referPos=GetPos(sdData[j].prn,referPrn,sdData[j].satnum);
-		 int referPos1=GetPos(sdData[j+1].prn,referPrn1,sdData[j+1].satnum);
-
-
-		 DdData dddataCurr;	 DdObsInfo ddobsinfo;
-		 DoubleDiff(referPrn,referPos,sdData[i],dddataCurr);
-		 dddataCurr=ComObsPhsCod(ddctrl,ddobsinfo,ambinfo,dddataCurr);
-
-		 DdData dddataCurr1;	 DdObsInfo ddobsinfo1;
-		 DoubleDiff(referPrn1,referPos1,sdData[i+1],dddataCurr1);
-		 dddataCurr=ComObsPhsCod(ddctrl,ddobsinfo1,ambinfo,dddataCurr1);
-
-		 if(sdData[i].satnum-dddataCurr.pairNum!=1  || sdData[i+1].satnum-dddataCurr1.pairNum!=1) continue;
+		int referPos=GetPos(sdData[j].prn,referPrn,sdData[j].satnum);
+		int referPos1=GetPos(sdData[j+1].prn,referPrn1,sdData[j+1].satnum);
 
 
-		 int obsNum	=ddobsinfo.SumCod();//the number of all obs in one system at current epoch
-		 math::matrix<double>y(obsNum,1);
-		 math::matrix<double>V(obsNum,1);
-		 math::matrix<double> DesMatPos(obsNum,3);
-		 math::matrix<double> L(obsNum,1);
-		 FormDesMatPos(DesMatPos,L,dddataCurr,ddobsinfo,ddctrl);
-		 FormResidual(L,y,dddataCurr,ddctrl,ambinfo);
+		DdData dddataCurr;	 DdObsInfo ddobsinfo;
+		DoubleDiff(referPrn,referPos,sdData[i],dddataCurr);
+		dddataCurr=ComObsPhsCod(ddctrl,ddobsinfo,ambinfo,dddataCurr);
+
+		DdData dddataCurr1;	 DdObsInfo ddobsinfo1;
+		DoubleDiff(referPrn1,referPos1,sdData[i+1],dddataCurr1);
+		dddataCurr=ComObsPhsCod(ddctrl,ddobsinfo1,ambinfo,dddataCurr1);
+
+		if(sdData[i].satnum-dddataCurr.pairNum!=1  || sdData[i+1].satnum-dddataCurr1.pairNum!=1) continue;
 
 
-		 int obsNum1	=ddobsinfo1.SumCod();//the number of all obs in one system at current epoch
-		 math::matrix<double>y1(obsNum,1);
-		 math::matrix<double>V1(obsNum,1);
-		 math::matrix<double> DesMatPos1(obsNum,3);
-		 math::matrix<double> L1(obsNum,1);
-		 FormDesMatPos(DesMatPos1,L1,dddataCurr1,ddobsinfo1,ddctrl);
-		 FormResidual(L1,y1,dddataCurr1,ddctrl,ambinfo);
-		 
-		 if(L1.RowNo()!=L.RowNo()) continue;
-		 math::matrix<double>RLe,RMate;
-		 RLe=VecMat(1,L,L1);
-		 RMate=VecMat(3,DesMatPos,DesMatPos1);
+		int obsNum	=ddobsinfo.SumCod();//the number of all obs in one system at current epoch
+		math::matrix<double>y(obsNum,1);
+		math::matrix<double>V(obsNum,1);
+		math::matrix<double> DesMatPos(obsNum,3);
+		math::matrix<double> L(obsNum,1);
+		FormDesMatPos(DesMatPos,L,dddataCurr,ddobsinfo,ddctrl);
+		FormResidual(L,y,dddataCurr,ddctrl,ambinfo);
 
 
-		 if (Pdd0.RowNo()!=RLe.RowNo() ||Pdd1.RowNo()!=RLe.RowNo()||Pdd1.RowNo()!=RLe.RowNo())
-		 {
-			 cout<<i<<"  error!!!"<<endl;
-			 continue;
-		 }
+		int obsNum1	=ddobsinfo1.SumCod();//the number of all obs in one system at current epoch
+		math::matrix<double>y1(obsNum,1);
+		math::matrix<double>V1(obsNum,1);
+		math::matrix<double> DesMatPos1(obsNum,3);
+		math::matrix<double> L1(obsNum,1);
+		FormDesMatPos(DesMatPos1,L1,dddataCurr1,ddobsinfo1,ddctrl);
+		FormResidual(L1,y1,dddataCurr1,ddctrl,ambinfo);
+
+		if(L1.RowNo()!=L.RowNo()) continue;
+		math::matrix<double>RLe,RMate;
+		RLe=VecMat(1,L,L1);
+		RMate=VecMat(3,DesMatPos,DesMatPos1);
+
+
+		if (Pdd0.RowNo()!=RLe.RowNo() ||Pdd1.RowNo()!=RLe.RowNo()||Pdd1.RowNo()!=RLe.RowNo())
+		{
+			cout<<i<<"  error!!!"<<endl;
+			continue;
+		}
 		// Ne=(~RMate)*Pdd0*RMate; Le=(~RMate)*Pdd0*RLe;		 
-		 Ne=(~RMate)*Pdd0*RMate;
-		 Le=(~RMate)*Pdd0*RLe; 
-
-		
-		 Nr=(~RMate)*Pdd1*RMate;
-		 Lr=(~RMate)*Pdd1*RLe;
+		Ne=(~RMate)*Pdd0*RMate;
+		Le=(~RMate)*Pdd0*RLe; 
 
 
-		 Ne=CholeskyInv(Ne);eta0=-(~Le)*Ne*Le;
-		 Le=(Ne*Le);
-		 //cout<<~(DesMatPos*(Le+xt));
-		 sige= eta0+~RLe*Pdd0*RLe;
+		Nr=(~RMate)*Pdd1*RMate;
+		Lr=(~RMate)*Pdd1*RLe;
 
-		 Le=~XYZ2NEU(Le,BLH[0],BLH[1]);
-		 Ne=~ diagElemMat(Rota*Ne*(~Rota));
+
+		Ne=CholeskyInv(Ne);eta0=-(~Le)*Ne*Le;
+		Le=(Ne*Le);
+		//cout<<~(DesMatPos*(Le+xt));
+		sige= eta0+~RLe*Pdd0*RLe;
+
+		Le=~XYZ2NEU(Le,BLH[0],BLH[1]);
+		Ne=~ diagElemMat(Rota*Ne*(~Rota));
 		//Ne=1.0/(obsNum-3)*sige(0,0)*Ne;
 
-		 Nr=CholeskyInv(Nr);eta1=-(~Lr)*Nr*Lr;
-		 Lr=(Nr*Lr);
-		 sigr= eta1+~RLe*Pdd1*RLe;
+		Nr=CholeskyInv(Nr);eta1=-(~Lr)*Nr*Lr;
+		Lr=(Nr*Lr);
+		sigr= eta1+~RLe*Pdd1*RLe;
 
-		 Lr=~XYZ2NEU(Lr,BLH[0],BLH[1]);
-		 Nr=~  diagElemMat(Rota*Nr*(~Rota));
-		 //Nr=sigr(0,0)/(obsNum-3)*Nr;
+		Lr=~XYZ2NEU(Lr,BLH[0],BLH[1]);
+		Nr=~  diagElemMat(Rota*Nr*(~Rota));
+		//Nr=sigr(0,0)/(obsNum-3)*Nr;
 
-		 cnt++;
-		 if (i%1000==0)
-		 {
-			 cout<<"DD: "<<i<<"/"<<40000<<endl;
-		 }
-		 //	 cout<<i<<"  "<<Le[i].Norm()<<"  "<<Lr[i].Norm() <<endl;
-		 // cout<<(Le[i])<<Ne[i]<<endl;  cout<<(Lr[i])<<Nr[i]<<endl;
+		cnt++;
+		if (i%1000==0)
+		{
+			cout<<"DD: "<<i<<"/"<<40000<<endl;
+		}
+		//	 cout<<i<<"  "<<Le[i].Norm()<<"  "<<Lr[i].Norm() <<endl;
+		// cout<<(Le[i])<<Ne[i]<<endl;  cout<<(Lr[i])<<Nr[i]<<endl;
 
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,0);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,1);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,2);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,0);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,1);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Le(0,2);
 
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,0);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,1);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,2);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,0);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,1);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Ne(0,2);
 
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,0);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,1);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,2);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,0);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,1);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Lr(0,2);
 
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,0);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,1);
-		 fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,2);
-		 fout<<endl;
-	 }//end i
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,0);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,1);
+		fout<<setiosflags(ios::fixed)<<setprecision(4)<<setw(9)<<Nr(0,2);
+		fout<<endl;
+	}//end i
 
-	 fout.close();
-	 int how;
- }
+	fout.close();
+	int how;
+}
 
 
 void Position:: PostParSingle(int numEpoch,SdData* sdData,int* satprn,DdCtrl ddctrl)
@@ -3672,14 +3681,14 @@ void Position:: PostParSingle(int numEpoch,SdData* sdData,int* satprn,DdCtrl ddc
 
 /***************************************************************************************************************/
 /*
- * after single system processing, the design matrices and weight mat are formed.
- * this function puts two system together.
- * I:
- *	 ddctrl1				the control for system1
- *	 ddctrl2				the control for system2.
- *   dddata1			the system1 data
- *   dddata2			the system2 data
- */
+* after single system processing, the design matrices and weight mat are formed.
+* this function puts two system together.
+* I:
+*	 ddctrl1				the control for system1
+*	 ddctrl2				the control for system2.
+*   dddata1			the system1 data
+*   dddata2			the system2 data
+*/
 void Position::DoubleSystemPosition(DdCtrl ddctrl1,DdCtrl ddctrl2,DdData dddata1,DdData dddata2,DdObsInfo obsinfo1,DdObsInfo obsinfo2)
 {
 
@@ -3691,16 +3700,22 @@ void Position::DoubleSystemPosition(DdCtrl ddctrl1,DdCtrl ddctrl2,DdData dddata1
 /************************************************************************/
 
 /*
- *Input:
- *			curData	the uncombined data
- *							phs	unit: cycle
- *							cod	unit: m
- *			
- * Output:
- *			ewl1  (1,4,-5)   -->P(1,1,0)      ewl unit: cycle
- *			ewl2	 (0,-1,1)   -->P(0,1,1)
- */
-void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag2, double threshold,DdData curData )
+*Input:
+*			curData	the uncombined data
+*							phs	unit: cycle
+*							cod	unit: m
+*			
+* Output:
+*			ewl1  (1,4,-5)   -->P(1,1,0)      ewl unit: cycle
+*			ewl2	 (0,-1,1)   -->P(0,1,1)
+*/
+
+static double EpochCnt1[16]={0};
+static double EpochCnt2[16]={0};
+static double EwlHat1[16]={0};
+static double EwlHat2[16]={0};
+
+void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag2, double threshold,DdData curData,int EpochCtrl )
 {
 
 	int sysid=Sysid(curData.refPrn);
@@ -3710,28 +3725,46 @@ void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag
 
 	double lam14_5=CLIGHT/CombFreq(sysid,coef14_5);
 	double lam0_11=CLIGHT/CombFreq(sysid,coef0_11);
-	fstream fracEwl;
-	/*fracEwl.open("FracFile.txt",ios::app);
+	/*fstream fracEwl;
+	fracEwl.open("FracFile.txt",ios::app);
 	fracEwl<<setiosflags(ios::fixed)<<setprecision(2)<<setw(10)<<curData.sec<<setw(4)<<curData.pairNum<<endl;*/
+
 	for (int i=0;i<curData.pairNum;i++)
 	{
+
 		if (curData.datarecord[i].numVadCod+curData.datarecord[i].numVadPhs>=6)
 		{
-			
+			int Prn=curData.rovPrn[i]-200;
+
 			int flag=Sum(curData.datarecord[i].isCycleSlip,3);
-			if(flag) fixflag1[i]=0;
+			if(flag) /*cycle slip*/
+			{
+				fixflag1[i]=0;
+				EpochCnt1[Prn-1]=EpochCnt2[Prn-1]=0;
+			}
+
 			double frac,ewlInt;
 			if (ewl1 && fixflag1[i]==0)
 			{
+				EpochCnt1[Prn-1]++;
+				if (EpochCnt1[Prn-1]>10) EpochCnt1[Prn-1]=EwlHat1[Prn-1]=0.0;
 				Phi14_5=CombObsCycle(sysid,coef14_5,curData.datarecord[i].Phase);
 				P110	=CombObs(sysid,coef110,curData.datarecord[i].PsRange);
-				ewl1[i]=(P110-Phi14_5)/lam14_5;
-				ewlInt=ROUND(ewl1[i]);
-			//	fracEwl<<setiosflags(ios::fixed)<<setw(4)<<curData.rovPrn[i]<<setprecision(5)<<setw(8)<<ewlInt-ewl1[i];
-				if((frac=fabs(ewlInt-ewl1[i]))<threshold)
+
+				if (EpochCnt1[Prn-1]>1.0  && fabs((P110-Phi14_5)/lam14_5-EwlHat1[Prn-1])>1.0  )
+				{
+					EwlHat1[Prn-1]=EpochCnt1[Prn-1]=0.0;
+				}
+				if(EpochCnt1[Prn-1]>0.0) 
+					EwlHat1[Prn-1]=EwlHat1[Prn-1]*(1.0-1.0/EpochCnt1[Prn-1])+(P110-Phi14_5)/lam14_5/EpochCnt1[Prn-1];
+
+				ewlInt=ROUND(EwlHat1[Prn-1]);
+				//	fracEwl<<setiosflags(ios::fixed)<<setw(4)<<curData.rovPrn[i]<<setprecision(5)<<setw(8)<<ewlInt-ewl1[i];
+				if((frac=fabs(ewlInt-EwlHat1[Prn-1]))<threshold&&EpochCnt1[Prn-1]>=EpochCtrl)//
 				{
 					ewl1[i]=ewlInt;
 					if(fixflag1) fixflag1[i]=1;
+					EpochCnt1[Prn-1]=0.0;
 				}
 				else
 				{
@@ -3741,15 +3774,18 @@ void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag
 			if(flag) fixflag2[i]=0;
 			if (ewl2 && fixflag2[i]==0)
 			{
+				EpochCnt2[Prn-1]++;		
+				if (EpochCnt2[Prn-1]>10) EpochCnt2[Prn-1]=EwlHat2[Prn-1]=0.0;
 				Phi0_11=CombObsCycle(sysid,coef0_11,curData.datarecord[i].Phase);
 				P011	=CombObs(sysid,coef011,curData.datarecord[i].PsRange);
-				ewl2[i]=(P011-Phi0_11)/lam0_11;
-				ewlInt=ROUND(ewl2[i]);
-			//	fracEwl<<setiosflags(ios::fixed)<<setprecision(5)<<setw(8)<<ewlInt-ewl2[i]<<endl;
-				if((frac=fabs(ewlInt-ewl2[i]))<threshold)
+				EwlHat2[Prn-1]=EwlHat2[Prn-1]*(1.0-1.0/EpochCnt2[Prn-1])+(P011-Phi0_11)/lam0_11/EpochCnt2[Prn-1];
+				ewlInt=ROUND(EwlHat2[Prn-1]);
+				//	fracEwl<<setiosflags(ios::fixed)<<setprecision(5)<<setw(8)<<ewlInt-ewl2[i]<<endl;
+				if((frac=fabs(ewlInt-EwlHat2[Prn-1]))<threshold&&EpochCnt2[Prn-1]>=EpochCtrl)//
 				{
 					ewl2[i]=ewlInt;
 					if(fixflag2) fixflag2[i]=1;
+					EpochCnt1[Prn-1]=0.0;
 				}
 				else
 				{
@@ -3759,39 +3795,26 @@ void Position::GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag
 		}
 
 	}
-//	fracEwl.close();
+	//	fracEwl.close();
 }
 
-/*calculate the ionophere with ewl obs
- *		curdata phs and cod unit meter
- *		
- */
-void IonoCalcWithEWL(DdData curdata)
-{
-	double Iono[32]={0};
-	double beta1=(FREQ2_BDS+4*SQ(FREQ2_BDS)/FREQ7_BDS-5*SQ(FREQ2_BDS)/FREQ6_BDS)/FREQ_EWL_BDS1,
-				beta2=(-SQ(FREQ2_BDS)/FREQ7_BDS+1*SQ(FREQ2_BDS)/FREQ6_BDS)/FREQ_EWL_BDS2;
-	for (int i=0;i<curdata.pairNum;i++)
-	{
-		Iono[i]=0;
-	}
-}
+
 
 static int ErtkModel=-1; /*0 =iono fix, 1 =iono float with EWL*/
 
 static int ErtkInitial=0; /* 0=Initial, 1=Done*/
 
 /*
- * Input:
- *			curData	current epoch data with combined obs unit: meter
- *			preData	previous epoch data with combined obs unit: meter
- * Output:
- *	
- *	Note: 
- *			the frequency order =B1, B2, B3
- *			code data are not combined.
- *			phase data are combined by (0,1,-1) and (1,4,-5) 
- */
+* Input:
+*			curData	current epoch data with combined obs unit: meter
+*			preData	previous epoch data with combined obs unit: meter
+* Output:
+*	
+*	Note: 
+*			the frequency order =B1, B2, B3
+*			code data are not combined.
+*			phase data are combined by (0,1,-1) and (1,4,-5) 
+*/
 DMatrix Position::ErtkBDS(DdData curData)
 {
 	int numphs=curData.NoPhs(0)+curData.NoPhs(1);//suppose NoPhs(0)=NoPhs(1)
@@ -3803,7 +3826,7 @@ DMatrix Position::ErtkBDS(DdData curData)
 
 	int restAmb=0;
 	restAmb=FormDesMatAmb(DesAmb,curData,2,0,DdControl.freqPhs,AmbInfoSys);
-	
+
 	FormResidual(L,curData,0,2);
 	ReFormConstWithAmb(L,AmbInfoSys,0,2,DdControl.freqPhs,curData);
 	P=FormWeightErtk(numphs/2,DdObsSys.eleRefBase,DdObsSys.eleRefRov,DdObsSys.eleRovBase,DdObsSys.eleRovRov);
@@ -3823,7 +3846,7 @@ DMatrix Position::ErtkBDS(DdData curData)
 		}
 	}
 
-	
+
 	if(!_finite(x_hat(0,0)))
 	{
 		restAmb=restAmb;
@@ -3841,22 +3864,28 @@ DMatrix Position::ErtkBDS(DdData curData)
 	return x_hat;
 }
 
-DMatrix Position::ErtkBDSFloat(DdData curData)
+bool Position::ErtkBDSFloat(DdData curData)
 {
-	int numPhsType=2,numCodType=2;
+	int numPhsType=2,numCodType=0;
 	int numphs=0;
 	int numcod=0;
 	for (int i=0;i<numPhsType;i++) numphs+=curData.NoPhs(i);
 	for (int i=0;i<numCodType;i++) numcod+=curData.NoCod(i);
-	
+
 	int UnfixNum=AmbInfoSys.TotalUnfixNum(numPhsType);
+
 	int Unfix=(UnfixNum>0)?UnfixNum:1;
 	int row=numphs+numcod;
+	if (UnfixNum+3+curData.NoPhs(0)>=row)
+	{
+		return false;
+	}
+
 	DMatrix DesPos(row,3),DesIono(row,row/(numCodType+numPhsType)),L(row,1),
-				 DesAmb(row,Unfix),P(numphs,numphs);
+		DesAmb(row,Unfix),P(numphs,numphs);
 	FormDesMatPos(DesPos,L,curData,numCodType,numPhsType);
 	FormDesMatIonoBDSErtk(DesIono,curData,numCodType,numPhsType,DdControl.freqCod,DdControl.freqPhs);
-
+	//cout<<DesIono;
 	int restAmb=0;
 	restAmb=FormDesMatAmb(DesAmb,curData,numPhsType,numCodType,DdControl.freqPhs,AmbInfoSys);
 	FormResidual(L,curData,numCodType,numPhsType);
@@ -3881,7 +3910,6 @@ DMatrix Position::ErtkBDSFloat(DdData curData)
 			DMatrix N13=~DesPos*P*DesAmb,N23=~DesIono*P*DesAmb,
 				N33=~DesAmb*P*DesAmb,U3=~DesAmb*P*L,
 				invN33=CholeskyInv(N33);
-			
 			N11=N11-N13*invN33*(~N13); 
 			N12=N12-N13*invN33*(~N23);
 			N22=N22-N23*invN33*(~N23);
@@ -3894,6 +3922,12 @@ DMatrix Position::ErtkBDSFloat(DdData curData)
 		iota=U2;
 	}
 
+	if(!_finite(x_hat(0,0))||fabs(x_hat(0,0))>1000.0)
+	{
+		cout<<"What's that?          "<<x_hat(0,0)<<endl;
+		return false;
+	}
+
 	if(_finite(x_hat(0,0))&&fabs(x_hat(0,0))<1000.0)
 	{
 		for(int i=0;i<3;i++) x_hat(i,0)+=curData.rovRecPos[i];
@@ -3903,7 +3937,7 @@ DMatrix Position::ErtkBDSFloat(DdData curData)
 		IonoFile<<setiosflags(ios::fixed)<<setw(4)<<curData.pairNum<<endl;
 		for(int i=0;i<curData.pairNum;i++)
 			IonoFile<<setiosflags(ios::fixed)<<setw(3)<<curData.rovPrn[i]<<
-							setw(10)<<setprecision(6)<<iota(i,0)<<endl;
+			setw(10)<<setprecision(6)<<iota(i,0)<<endl;
 		IonoFile.close();
 
 		fstream crdFile;
@@ -3911,11 +3945,11 @@ DMatrix Position::ErtkBDSFloat(DdData curData)
 		crdFile<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
 		crdFile.close();
 	}
-	return x_hat;
+	return true;
 }
 
 static DMatrix Qaa,a;
-int epoch=0;
+
 /*phase order (EWL1,EWL2, N1) unit: m*/
 void Position::ErtkBDSWithNl(DdData curData)
 {
@@ -3952,8 +3986,8 @@ void Position::ErtkBDSWithNl(DdData curData)
 	if (ErtkModel==2)
 	{
 		DMatrix N12=~DesPos*P*DesAmb,N22=~DesAmb*P*DesAmb,U2=~DesAmb*P*L,
-			         N13=~DesPos*P*DesIono,N33=~DesIono*P*DesIono,N23=~DesAmb*P*DesIono,
-					 U3=~DesIono*P*L;
+			N13=~DesPos*P*DesIono,N33=~DesIono*P*DesIono,N23=~DesAmb*P*DesIono,
+			U3=~DesIono*P*L;
 
 		if(restAmb==0)
 		{
@@ -3976,6 +4010,7 @@ void Position::ErtkBDSWithNl(DdData curData)
 		{
 			if(UnfixNum>curData.pairNum)
 			{
+				/*get the vc-mat and float solution of B1 */
 				Qaa=GetBlockMat(N22,UnfixNum-curData.pairNum+1,UnfixNum,UnfixNum-curData.pairNum+1,UnfixNum,1);
 				a=GetBlockMat(a_hat,UnfixNum-curData.pairNum+1,UnfixNum,1,1,2);
 			}
@@ -3984,7 +4019,7 @@ void Position::ErtkBDSWithNl(DdData curData)
 				Qaa=N22;
 				a=a_hat;
 			}
-				
+
 		}
 		else
 		{
@@ -4023,17 +4058,23 @@ void Position::ErtkBDSWithNl(DdData curData)
 					AmbInfoSys.prnList[2][i]=curData.rovPrn[i];
 				}
 			} 
-				
+
 			cout<<"  ratio   "<<ratio<<"   ";
 		}
-		
 
+
+	}
+
+	if(!_finite(x_hat(0,0))||fabs(x_hat(0,0))>1000.0)
+	{
+		cout<<fabs(x_hat(0,0))<<endl;
 	}
 	if(_finite(x_hat(0,0))&&fabs(x_hat(0,0))<1000.0)
 	{
+
 		for(int i=0;i<3;i++) x_hat(i,0)+=curData.rovRecPos[i];
 		//cout<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
-		
+
 
 		fstream crdFile;
 		crdFile.open("CrdFileFloatNL.txt",ios::app);
@@ -4045,18 +4086,22 @@ void Position::ErtkBDSWithNl(DdData curData)
 
 
 const int NumSatBDS=16;
-const int WindowMax=200;
+const int WindowMax=60;
 static int epochCnt[NumSatBDS]={0};
 static double EwlCheckObs1[NumSatBDS][WindowMax]={0.0};
 static double EwlCheckObs2[NumSatBDS][WindowMax]={0.0};
 static double LcB1B2[NumSatBDS][WindowMax]={0.0};
 
 /* smooth ewl obs with lc 
- *	I:
- *		curdata phase uint: meter
- **/
+*	I:
+*		curdata phase uint: meter
+**/
 void Position::IonoSmooth(DdData& curdata,DdData curdataCycle)
 {
+	fstream IonoFile;
+	IonoFile.open("IonoFile.txt",ios::app);
+	IonoFile<<setiosflags(ios::fixed)<<setw(3)<<curdata.pairNum<<endl;
+
 	double K=(SQ(FREQ2_BDS)-SQ(FREQ7_BDS));
 	for (int i=0;i<curdata.pairNum;i++)
 	{
@@ -4067,13 +4112,14 @@ void Position::IonoSmooth(DdData& curdata,DdData curdataCycle)
 			epochCnt[prn-1]=0;
 			for(int j=0;j<WindowMax;j++)EwlCheckObs1[prn-1][j]=EwlCheckObs2[prn-1][j]=LcB1B2[prn-1][j]=0.0;
 		}
-		
+
 		if (AmbInfoSys.fixFlag[0][pos]*AmbInfoSys.fixFlag[1][pos]==1)
 		{
 			double beta1=BETA_BDS1,beta2=BETA_BDS2;
 			double check_ewl1=curdata.datarecord[i].Phase[0]+AmbInfoSys.fixSolu[0][pos]*(CLIGHT/FREQ_EWL_BDS1);
 			double check_ewl2=curdata.datarecord[i].Phase[1]+AmbInfoSys.fixSolu[1][pos]*(CLIGHT/FREQ_EWL_BDS2);
 			double dIono=(check_ewl2-check_ewl1)/(beta1-beta2);
+
 			check_ewl1+=beta1*dIono;
 			check_ewl2+=beta2*dIono;
 			double lc=(curdataCycle.datarecord[i].Phase[0]*CLIGHT*FREQ2_BDS-curdataCycle.datarecord[i].Phase[1]*CLIGHT*FREQ7_BDS)/K;
@@ -4092,11 +4138,276 @@ void Position::IonoSmooth(DdData& curdata,DdData curdataCycle)
 			}
 			double num=(double)epochCnt[prn-1];
 			double s=(lc-Mean(LcB1B2[prn-1],epochCnt[prn-1]-1));
-			double Smth1=	Mean(EwlCheckObs1[prn-1],epochCnt[prn-1])+(num-1)/num*s-AmbInfoSys.fixSolu[0][pos]*(CLIGHT/FREQ_EWL_BDS1);	
-			double Smth2=	Mean(EwlCheckObs2[prn-1],epochCnt[prn-1])+(num-1)/num*s-AmbInfoSys.fixSolu[1][pos]*(CLIGHT/FREQ_EWL_BDS2);
+			IonoFile<<setiosflags(ios::fixed)<<setw(2)<<prn<<setiosflags(ios::fixed)<<setw(9)<<setprecision(5)<<dIono<<endl;
+
+			double Smth1=Mean(EwlCheckObs1[prn-1],epochCnt[prn-1])+(num-1.0)/num*s-AmbInfoSys.fixSolu[0][pos]*(CLIGHT/FREQ_EWL_BDS1);	
+			double Smth2=	Mean(EwlCheckObs2[prn-1],epochCnt[prn-1])+(num-1.0)/num*s-AmbInfoSys.fixSolu[1][pos]*(CLIGHT/FREQ_EWL_BDS2);
 			curdata.datarecord[i].Phase[0]=Smth1;
 			curdata.datarecord[i].Phase[1]=Smth2;
 		}
-		
+		else
+		{
+			IonoFile<<setiosflags(ios::fixed)<<setw(2)<<prn<<setiosflags(ios::fixed)<<setw(9)<<setprecision(5)<<0.0<<endl;
+
+		}
+
 	}
+	IonoFile.close();
 }
+
+
+/*smooth ionosphere with (B1-B2)*/
+void Position::IonoSmoothB1B2(DdData& curdata,DdData curdataCycle)
+{
+	double K=(SQ(FREQ2_BDS)-SQ(FREQ7_BDS));
+	fstream IonoFile;
+
+	IonoFile.open("IonoFile.txt",ios::app);
+	IonoFile<<setiosflags(ios::fixed)<<setw(3)<<curdata.pairNum<<endl;
+	for (int i=0;i<curdata.pairNum;i++)
+	{
+		int pos=FindPosInt(AmbInfoSys.prnList[0],curdata.pairNum,curdata.rovPrn[i]);
+		int prn=curdata.rovPrn[i]-200;
+		if (curdata.datarecord[i].isCycleSlip[0]==1)
+		{
+			epochCnt[prn-1]=0;
+			for(int j=0;j<WindowMax;j++)EwlCheckObs1[prn-1][j]=EwlCheckObs2[prn-1][j]=LcB1B2[prn-1][j]=0.0;
+		}
+
+		if (AmbInfoSys.fixFlag[0][pos]*AmbInfoSys.fixFlag[1][pos]==1)
+		{
+			double beta1=BETA_BDS1,beta2=BETA_BDS2;
+			double check_ewl1=curdata.datarecord[i].Phase[0]+AmbInfoSys.fixSolu[0][pos]*(CLIGHT/FREQ_EWL_BDS1);
+			double check_ewl2=curdata.datarecord[i].Phase[1]+AmbInfoSys.fixSolu[1][pos]*(CLIGHT/FREQ_EWL_BDS2);
+			double dIono=(check_ewl2-check_ewl1)/(beta1-beta2);
+			double bar_Iono=SQ(FREQ7_BDS)/K*(curdataCycle.datarecord[i].Phase[0]*CLIGHT/FREQ2_BDS-curdataCycle.datarecord[i].Phase[1]*CLIGHT/FREQ7_BDS);
+			if (epochCnt[prn-1]==WindowMax)
+			{
+				ReSetPtrWithElem(EwlCheckObs1[prn-1],dIono,WindowMax);
+				ReSetPtrWithElem(LcB1B2[prn-1],bar_Iono,WindowMax);
+			}
+			else
+			{
+				EwlCheckObs1[prn-1][epochCnt[prn-1]]=dIono;
+				LcB1B2[prn-1][epochCnt[prn-1]]=bar_Iono;
+				epochCnt[prn-1]++;
+			}
+			double num=(double)epochCnt[prn-1];
+			double s=(bar_Iono-Mean(LcB1B2[prn-1],epochCnt[prn-1]-1));
+
+			double Smth1=	Mean(EwlCheckObs1[prn-1],epochCnt[prn-1])+(num-1.0)/num*s;
+			IonoFile<<setiosflags(ios::fixed)<<setw(2)<<prn<<setiosflags(ios::fixed)<<setw(9)<<setprecision(5)<<Smth1<<endl;
+			curdata.datarecord[i].Phase[0]+=Smth1*beta1;
+			curdata.datarecord[i].Phase[1]+=Smth1*beta2;
+		}
+		else
+		{
+			IonoFile<<setiosflags(ios::fixed)<<setw(2)<<prn<<setiosflags(ios::fixed)<<setw(9)<<setprecision(5)<<0.0<<endl;
+
+		}
+
+	}
+	IonoFile.close();
+}
+
+
+/*for single frequency*/
+
+static void SateDown(DdData curdata,DdData predata,DMatrix& Naa,DMatrix& Uaa)
+{
+	int prePhs=0,leftPhs=0;
+	int preList[MAXNUMSATE];/*for the cycle slip and down*/
+	int leftList[MAXNUMSATE];/*no cycle slip and no down*/
+
+	for (int i=predata.pairNum;i>0;i--)
+	{
+		int pos=FindPosInt(curdata.rovPrn,curdata.pairNum,predata.rovPrn[i-1]);
+		/*cycle slip only*/
+		if((pos>-1 &&curdata.datarecord[pos].isCycleSlip[0]==1))preList[prePhs++]=predata.rovPrn[i-1];
+
+		if (pos==-1||(pos>-1 &&curdata.datarecord[pos].isCycleSlip[0]==1))
+		{
+			fstream logfile;
+			logfile.open("logFile.txt",ios::app);
+			Naa=ElimRowColNEQ(Naa,Uaa,i);
+			logfile<<setw(10)<<epoch<<"  "<<endl;
+			if(pos>-1) 
+			{
+				cout<<"Eliminate "<<predata.rovPrn[i-1]<<"        Cycle slip!"<<endl;
+				logfile<<"Eliminate "<<predata.rovPrn[i-1]<<"        Cycle slip!"<<endl;
+			}
+
+			if(pos==-1)
+			{
+				cout<<"Eliminate "<<predata.rovPrn[i-1]<<"        FALL!"<<endl;
+				logfile<<"Eliminate "<<predata.rovPrn[i-1]<<"        FALL!"<<endl;
+			}
+			logfile.close();	
+		}
+		else
+		{
+			leftList[leftPhs++]=predata.rovPrn[i-1];
+		}
+	}
+
+	/*for cycle slip only, recover the Naa's size*/
+	for (int i=prePhs;i>0;i--)
+	{
+		int pos=FindPosInt(leftList,leftPhs,preList[i-1]);
+		if (pos==-1)
+		{
+			Naa=InsertZeroRowCol(Naa,prePhs-i+1);
+			Uaa=InsertZeroRow(Uaa,prePhs-i,1);
+		}
+	}
+
+}
+
+static void SateUp(DdData curdata,DdData predata,DMatrix& Naa,DMatrix& Uaa)
+{
+
+	//int preList[MAXNUMSATE],leftList[MAXNUMSATE];
+	for (int i=curdata.pairNum;i>0;i--)
+	{
+		int pos=FindPosInt(predata.rovPrn,predata.pairNum,curdata.rovPrn[i-1]);
+		if (pos==-1)
+		{
+			fstream logfile;
+			logfile.open("logFile.txt",ios::app);
+			logfile<<setw(10)<<epoch<<"  "<<endl;
+			Naa=InsertZeroRowCol(Naa,i);
+			Uaa=InsertZeroRow(Uaa,i-1,1);
+			cout<<"Resize   "<<curdata.rovPrn[i-1]<<"        RISE!"<<endl;
+			logfile<<"Resize   "<<curdata.rovPrn[i-1]<<"        RISE!"<<endl;
+			logfile.close();
+		}
+	}
+
+}
+
+
+
+static DMatrix Naa,Ua;
+/*phase order (EWL1,EWL2, N1) unit: m*/
+void Position::ErtkBDSWithNlSmooth(DdData curData,DdData preData)
+{
+	int numPhsType=3,numCodType=0;
+	int numphs=0;
+	int numcod=0;
+	for (int i=0;i<numPhsType;i++) numphs+=curData.NoPhs(i);
+	for (int i=0;i<numCodType;i++) numcod+=curData.NoCod(i);
+
+	int UnfixNum=AmbInfoSys.TotalUnfixNum(numPhsType);
+	int Unfix=(UnfixNum>0)?UnfixNum:1;
+	int row=numphs+numcod;
+	DMatrix DesPos(row,3),DesIono(row,row/(numCodType+numPhsType)),L(row,1),
+		DesAmb(row,Unfix),P(numphs,numphs);
+	FormDesMatPos(DesPos,L,curData,numCodType,numPhsType);
+	FormDesMatIonoBDSErtk(DesIono,curData,numCodType,numPhsType,DdControl.freqCod,DdControl.freqPhs);
+
+	int restAmb=0;
+	restAmb=FormDesMatAmb(DesAmb,curData,numPhsType,numcod,DdControl.freqPhs,AmbInfoSys);
+	FormResidual(L,curData,numCodType,numPhsType);
+	ReFormConstWithAmb(L,AmbInfoSys,numcod,numPhsType,DdControl.freqPhs,curData);
+	P=FormWeightErtkNl(numphs/numPhsType,DdObsSys.eleRefBase,DdObsSys.eleRefRov,DdObsSys.eleRovBase,DdObsSys.eleRovRov);
+	if(numCodType!=0)
+	{
+		DMatrix Pcod=FormWeightSingleFreqPhs(numcod/numCodType,DdObsSys.eleRefBase,DdObsSys.eleRefRov,DdObsSys.eleRovBase,DdObsSys.eleRovRov);	
+		Pcod/=10000.0;
+		DMatrix Ps=Pcod;
+		if(numCodType>=2) Pcod=DiagMatSym(Ps,Ps);
+		if(numCodType==3) Pcod=DiagMatSym(Pcod,Ps);
+		P=DiagMatSym(Pcod,P);
+	}
+	DMatrix N11=~DesPos*P*DesPos,U1=~DesPos*P*L,x_hat(3,1),a_hat;
+	ErtkModel=2;
+
+	DMatrix N12=~DesPos*P*DesAmb,N22=~DesAmb*P*DesAmb,U2=~DesAmb*P*L,
+		N13=~DesPos*P*DesIono,N33=~DesIono*P*DesIono,N23=~DesAmb*P*DesIono,
+		U3=~DesIono*P*L;
+
+	if(restAmb==0)
+	{
+		SolveNormalEquationCholesky2(N11,N13,N33,U1,U3);
+	}
+	if (restAmb==1)
+	{
+		DMatrix invN33=CholeskyInv(N33);
+		N11=N11-N13*invN33*(~N13); 
+		N12=N12-N13*invN33*(~N23);
+		N22=N22-N23*invN33*(~N23);
+		U1=U1-N13*invN33*U3;
+		U2=U2-N23*invN33*U3;
+	}
+
+
+	if (epoch>0)
+	{
+
+		SateDown(curData,preData,Naa,Ua);
+		SateUp(curData,preData,Naa,Ua);
+		/*superposition the normal equation*/
+		int npos=UnfixNum-curData.pairNum;
+		if (npos==0)
+		{
+			N22+=Naa;
+			U2+=Ua;
+		}
+		for (int i=curData.pairNum;i>0&&npos>0;i--)
+		{
+			U2(npos+i-1,0)+=Ua(i-1,0);
+			for (int j=i;j>0;j--)
+			{
+				N22(npos+i-1,npos+j-1)+=Naa(i-1,j-1);
+				N22(npos+j-1,npos+i-1)=N22(npos+i-1,npos+j-1);
+			}
+		}
+	}
+	if(epoch>=0) 
+	{
+		if(UnfixNum>curData.pairNum)
+		{
+			/*get the Normal equation of B1 */
+			Naa=GetBlockMat(N22-~N12*CholeskyInv(N11)*N12,UnfixNum-curData.pairNum+1,UnfixNum,UnfixNum-curData.pairNum+1,UnfixNum,1);
+			Ua=GetBlockMat(U2-~N12*CholeskyInv(N11)*U1,UnfixNum-curData.pairNum+1,UnfixNum,1,1,2);
+		}	
+		else
+		{
+			Naa=N22-~N12*CholeskyInv(N11)*N12;
+			Ua=U2-~N12*CholeskyInv(N11)*U1;
+		}
+	}
+	SolveNormalEquationCholesky2(N11,N12,N22,U1,U2);
+
+	/*Ambiguity ar;
+	double s[2]={0,0};
+	DMatrix F(U2.RowNo(),2);
+	ar.Lambda(U2.RowNo(),2,U2,N22,F,s);
+	double ratio=s[1]/s[0];
+	fstream ratioFile;
+	ratioFile.open("ratioFile.txt",ios::app|ios::out);
+	ratioFile<<ratio<<endl;
+	ratioFile.close();*/
+	x_hat=U1;
+	a_hat=U2;
+
+
+	if(!_finite(x_hat(0,0))||fabs(x_hat(0,0))>1000.0)
+	{
+		cout<<"Not Good   "<<fabs(x_hat(0,0))<<endl;
+	}
+	if(_finite(x_hat(0,0))&&fabs(x_hat(0,0))<1000.0)
+	{
+
+		for(int i=0;i<3;i++) x_hat(i,0)+=curData.rovRecPos[i];
+		//cout<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
+
+
+		fstream crdFile;
+		crdFile.open("CrdFileFloatNL.txt",ios::app);
+		crdFile<<setiosflags(ios::fixed)<<setprecision(3)<<~x_hat;
+		crdFile.close();
+	}
+	epoch++;
+}
+

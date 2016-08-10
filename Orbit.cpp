@@ -17,7 +17,7 @@ void CalcSatePos::CompSatePosVelAcc(math::matrix<double>& SatePos,math::matrix<d
 	int		sysid		=Prn2Sysid(eph.prn);
 	double Aa			=SQ(eph.sqA);
 	double gm		=sysid>2?GM_BDS:GM;
-	double n			=sqrt(GM/pow(Aa,3)) + eph.deltan;
+	double n			=sqrt(gm/pow(Aa,3)) + eph.deltan;
 	double tk			=t-eph.toe;
 	if(tk<-302400.0)
 	{

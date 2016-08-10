@@ -145,8 +145,9 @@ void ProcessRinex::ReadObsHeader(CStdioFile& Ofile,CString& line, ObsHeader& obs
 				obsHeader.version=_wtof( line.Mid(0,9) );
 				obsHeader.sysid=Sysid(line.Mid(40,1));		
 			}
-
-
+		if(line.Find(_T("PRN / # OF OBS"))!=-1) continue;
+		if(line.Find(_T("SYS / PHASE SHIFT"))!=-1) continue;
+		
 		if (line.Find(_T("APPROX POSITION XYZ"))!=-1)
 		{
 			CString temp;

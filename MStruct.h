@@ -864,6 +864,7 @@ public:
 	void						Sort();
 	ObsEpochData&	Shrink();
 	ObsEpochData&	AutoShrink(int typeNo);
+	ObsEpochData&  RemovePrn(int Prn);
 	void						Cycle2MeterGlo(int* dNum);
 	int						sateNum;
 	int						flag;
@@ -920,6 +921,8 @@ public:
 	SppInfo();
 	SppInfo& operator=(const SppInfo& m);
 	//~SppInfo();
+	SppInfo& Shrink();
+	SppInfo& RemovePrn(int prn);
 public:
 	void				ZeroElem();
 	double			gdop;
@@ -1027,6 +1030,7 @@ public:
 	DdData&		Sort();
 	DdData&		Check(int numFreq);
 	DdData&		Shrink();
+	DdData&		Remove(int prn);
 	void		ClearTail(int index);
 	void		ZeroElem();
 	int   SumCod();
@@ -1187,7 +1191,7 @@ public:
 	double GetEle(int prn);
 	int   SumCod();
 	int   SumPhs();
-
+	//DdObsInfo& Shrink();
 	int NoCod(int ind);
 	int NoPhs(int ind);
 	int numCod[3];

@@ -15,7 +15,7 @@
 #define NEXOBS				0
 #define MAXTYPE2			45// max number of obstypes in 2.x
 #define MAXTYPE3			26// max number of obstypes in 3.x  single system 
-#define MAXNUMSATE		35     /* max sate number of gps   32*/
+#define MAXNUMSATE		50     /* max sate number of gps   32*/
 #define MAXNUMSATE_BDS	  35
 #define MAXNUMSATE_GLO	 30
 #define MAXNUMSATE_GAL 33
@@ -115,6 +115,9 @@
 #define LAMBDA_EWL_BDS2		(CLIGHT/FREQ_EWL_BDS2)                                                                                                                                   
 #define BETA_BDS1					(FREQ2_BDS/FREQ_EWL_BDS1*(1+4*FREQ2_BDSRATIO/FREQ7_BDSRATIO-5*FREQ2_BDSRATIO/FREQ6_BDSRATIO))
 #define BETA_BDS2					(FREQ2_BDS/FREQ_EWL_BDS2*(-FREQ2_BDSRATIO/FREQ7_BDSRATIO+FREQ2_BDSRATIO/FREQ6_BDSRATIO))
+#define LC_BDS1						(SQ(FREQ2_BDS)/(SQ(FREQ2_BDS)-SQ(FREQ7_BDS)))
+#define LC_BDS2						(SQ(FREQ7_BDS)/(SQ(FREQ2_BDS)-SQ(FREQ7_BDS)))
+
 
 #define  MAXSATERISE			10					/* the max of rising number*/
 #define  MAXSATEFALL			10					/* the max of falling number*/
@@ -122,7 +125,7 @@
 #define  INTERPOLYORDER			10		    /* order of interpolation */
 
 #define MAXSYS						6				/*	max number of system   */
-#define MAXEPHNUM				5000			/* max number of GPS+GAL+BDS+QZSS*/
+#define MAXEPHNUM				6000			/* max number of GPS+GAL+BDS+QZSS*/
 #define MAXEPHNUM_GLO		1500
 #define MAXEPHNUM_SBAS		200		
 

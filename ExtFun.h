@@ -191,7 +191,7 @@ extern void GetOutPath(CString commfile,CString& filepath);
 extern double FreqSysGlo(int ind,int n);
 
 
-extern math::matrix<double>ElimRowCol(math::matrix<double>A,math::matrix<double>&U,int k);
+extern math::matrix<double>ElimRowColVcmat(math::matrix<double>A,math::matrix<double>&U,int k);
 extern void FileOutTropsIono(fstream& fout,math::matrix<double> IonoVector,math::matrix<double> TropVector,DdData curData,double* ptrMapCur);
 //extern void FileOutTropsIono(fstream& fout,math::matrix<double> IonoVector,math::matrix<double> TropVector,DdData curData,double* ptrMapCur,int flag);
 extern math::matrix<double>ElimRowColNEQ(math::matrix<double>A,math::matrix<double>&U,int k);
@@ -204,3 +204,8 @@ extern int AbsIndMinInd(double* a,int num);
 extern double LCD(int a,int b);
 extern double LCM(int a,int b);
 extern double ReSetPtrWithElem(double* ptr,double tar,int Len);
+extern int isFileExist(char* file);
+extern double* ghg();
+extern void OutHMS(double sec);
+extern void deleteFile();
+extern math::matrix<double> Qxyz2Qneu(math::matrix<double> qxyz,double b0,double l0);

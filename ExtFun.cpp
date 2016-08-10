@@ -14,18 +14,18 @@ const static double gpst0[]={1980,1, 6,0,0,0}; /* gps time reference */
 const static double gst0 []={1999,8,22,0,0,0}; /* galileo time reference */
 const static double bdt0 []={2006,1, 1,0,0,0}; /* beidou time reference */
 
- /* 
-  * leap seconds {y,m,d,h,m,s,UTC-GPST,...} , 
-  * UTC-GPST=19-DTAI.
-  * DTAI, published by International Earth Rotation Service (IERS)
-  * More details, refer to the updated Report with LaTex
-  */
+/* 
+* leap seconds {y,m,d,h,m,s,UTC-GPST,...} , 
+* UTC-GPST=19-DTAI.
+* DTAI, published by International Earth Rotation Service (IERS)
+*/
 const static int leaps[][7]=
 {
-	{2015,7,1,0,0,0,-17},	/* DTAI=36 */
+	{2017,1,1,0,0,0,-18},	/*DTAI=37*/
+	{2015,7,1,0,0,0,-17},
 	{2012,7,1,0,0,0,-16},
 	{2009,1,1,0,0,0,-15},
-	{2006,1,1,0,0,0,-14},	/* BeiDou time reference,  BDT-GPST=-14 */ 
+	{2006,1,1,0,0,0,-14},	/* BDS Time Reference,  BDT-GPST=-14 */ 
 	{1999,1,1,0,0,0,-13},
 	{1997,7,1,0,0,0,-12},
 	{1996,1,1,0,0,0,-11},
@@ -38,7 +38,8 @@ const static int leaps[][7]=
 	{1985,7,1,0,0,0, -4},
 	{1983,7,1,0,0,0, -3},
 	{1982,7,1,0,0,0, -2},
-	{1981,7,1,0,0,0, -1}
+	{1981,7,1,0,0,0, -1},
+	{1980,1,6,0,0,0, 0}   /* GPS Time Reference */
 };
 
 extern void InitPtr(double *a,int num)
@@ -80,8 +81,8 @@ double FindLeapSec(const int year,const int mon)
 }
 
 /*
- *sec   utc
- */
+*sec   utc
+*/
 double UTC2GPST(const int y,const int mon,double sec)
 {
 	return sec-FindLeapSec(y,mon);
@@ -92,15 +93,15 @@ double GPST2UTC(const int y,const int mon,double sec)
 	return sec+FindLeapSec(y,mon);
 }
 /*
- *sec gps second
- */
+*sec gps second
+*/
 double GPST2BDT(double sec)
 {
 	return sec-14.0;
 }
 /*
- * use in eph calc
- */
+* use in eph calc
+*/
 double timediff(double t1,double t2)
 {
 	double tc=t1-t2;
@@ -126,7 +127,7 @@ double MJD(int y,int mon,int day,int hour,int m,double sec)
 	return floor(365.25*y+1.0e-9)+floor(30.6001*(mon+1)+1.0e-9)+day+th/24+1720981.5-2400000.5;
 }
 
- void WeekSec(int& week,double& sec, YMDHMS currtime,int sysid)
+void WeekSec(int& week,double& sec, YMDHMS currtime,int sysid)
 {
 	double mjdRefTime=0.0;
 	if (sysid==1 || sysid==2||sysid==4)
@@ -148,47 +149,47 @@ double MJD(int y,int mon,int day,int hour,int m,double sec)
 	sec	=(dow*24.0+currtime.hour)*3600.0+currtime.min*60.0+currtime.sec;
 }
 
- double weightfactor(double ele,int index)
- {
-	 if (index==1)
-	 {
-		 return 1.02/SQ((1.02/sin(ele)+0.02));
-	 }
-	 if (index==2)
-	 {
-		 return SQ(sin(ele));
-	 }
-	 if (index==3)
-	 {
-		 return (ele*R2D>30.0)?1.0:4*SQ(sin(ele));
-	 }
-	 if (index==0)
-	 {
-		 return 1.0;
-	 }
- }
+double weightfactor(double ele,int index)
+{
+	if (index==1)
+	{
+		return 1.02/SQ((1.02/sin(ele)+0.02));
+	}
+	if (index==2)
+	{
+		return SQ(sin(ele));
+	}
+	if (index==3)
+	{
+		return (ele*R2D>30.0)?1.0:4*SQ(sin(ele));
+	}
+	if (index==0)
+	{
+		return 1.0;
+	}
+}
 
- static double ZDPhsSig=0.3;   /*phase  uint: m*/
- /*unit:  m^2*/
+static double ZDPhsSig=0.3;   /*phase  uint: m*/
+/*unit:  m^2*/
 extern double cofactor(double ele,int index)
- {
-	 if (index==1)
-	 {
-		 return SQ(ZDPhsSig)*SQ(1.02/(sin(ele)+0.02));
-	 }
-	 if (index==2)
-	 {
-		 return SQ(ZDPhsSig)*1.0/SQ(sin(ele));
-	 }
-	 if (index==3)
-	 {
-		 return (ele*R2D>30.0)?SQ(ZDPhsSig)*1.0:SQ(ZDPhsSig)*1.0/(4.0*SQ(sin(ele)));
-	 }
-	 if (index==0)
-	 {
-		 return SQ(ZDPhsSig)*1.0;
-	 }
- }
+{
+	if (index==1)
+	{
+		return SQ(ZDPhsSig)*SQ(1.02/(sin(ele)+0.02));
+	}
+	if (index==2)
+	{
+		return SQ(ZDPhsSig)*1.0/SQ(sin(ele));
+	}
+	if (index==3)
+	{
+		return (ele*R2D>30.0)?SQ(ZDPhsSig)*1.0:SQ(ZDPhsSig)*1.0/(4.0*SQ(sin(ele)));
+	}
+	if (index==0)
+	{
+		return SQ(ZDPhsSig)*1.0;
+	}
+}
 
 extern double geodistcorr(SatePos& sat,double* rec)
 {
@@ -201,8 +202,8 @@ extern double geodistcorr(double* sat,double* rec)
 }
 
 /*
- *satellite clock error ts is obs_t-P/Clight
- */
+*satellite clock error ts is obs_t-P/Clight
+*/
 double ephclkerr(double ts,const BroadEphData eph)
 {
 	double tc=timediff(ts,eph.toc);
@@ -219,7 +220,7 @@ void ephpos(math::matrix<double>& SatePos,BroadEphData eph,double t,double& dts)
 	int		sysid		=Prn2Sysid(eph.prn);
 	double Aa			=SQ(eph.sqA);
 	double gm		=sysid>2?GM_BDS:GM;
-	double n			=sqrt(GM/pow(Aa,3)) + eph.deltan;
+	double n			=sqrt(gm/pow(Aa,3)) + eph.deltan;
 	double tk			=timediff(t,eph.toe);
 	double Mk		=eph.m0 + n*tk;
 	double Ek			=Mk;
@@ -278,7 +279,7 @@ void ephpos(math::matrix<double>& SatePos,BroadEphData eph,double t,double& dts)
 	}
 	tk=timediff(t,eph.toc);
 	dts= eph.satClkBs+eph.satClkDrt*tk+eph.satClkDrtRe*tk*tk;
-
+	if(sysid==5&&eph.tgd*eph.iodClk!=0.0) dts-=(LC_BDS1*eph.tgd-LC_BDS2*eph.iodClk);//in BDS brd ,iodc-->tgd2;
 	/* relativity correction */
 	dts-=2.0*sqrt(gm*Aa)*eph.e*sin(Ek)/SQ(CLIGHT);
 	//the TGD correction is out of this part, in SPP
@@ -370,8 +371,8 @@ extern void  geph2pos(double ts, const BroadEphDataGlo geph, double *rs, double&
 
 
 /*
- * GPS BDS GAL
- */
+* GPS BDS GAL
+*/
 void satepos(math::matrix<double>& SatePos,BroadEphData eph,double t,double& dts,math::matrix<double>& SateVel,double& ClkVel)
 {
 	int sysid=Sysid(eph.prn);
@@ -462,8 +463,8 @@ int Fac(int n)
 
 
 /*
- * n is the order of poly plus 1 
- */
+* n is the order of poly plus 1 
+*/
 double InterpolNevil(double *x,double* y,int n)
 {
 	int i,j;
@@ -475,16 +476,16 @@ double InterpolNevil(double *x,double* y,int n)
 	return y[0];
 }
 /*  
- *  compute the satepos by precise eph
- *  I: 
- *		satindex  the index of sate
- *		sec          the second of transmission time
- *		week		week of transmission time
- *		preceph	pointer to the precise eph
- *		neph
- *	O:
- *		precsatpos satepos 
- */
+*  compute the satepos by precise eph
+*  I: 
+*		satindex  the index of sate
+*		sec          the second of transmission time
+*		week		week of transmission time
+*		preceph	pointer to the precise eph
+*		neph
+*	O:
+*		precsatpos satepos 
+*/
 void PrecEphPos(SatePos& presatpos, int satindex,double sec,int week,PrecEphData* preceph,int neph)
 {
 	int i,j,k,index;
@@ -495,7 +496,7 @@ void PrecEphPos(SatePos& presatpos, int satindex,double sec,int week,PrecEphData
 		dtime=(preceph[k].week-week)*86400.0*7.0+preceph[k].sec-sec;
 		if (dtime<0.0)	i=k+1; else j=k;
 	}
-	
+
 	index=i<=0?0:i-1;
 
 	/* polynomial interpolation for orbit */
@@ -516,7 +517,7 @@ void PrecEphPos(SatePos& presatpos, int satindex,double sec,int week,PrecEphData
 	for (j=0;j<=INTERPOLYORDER;j++)
 	{
 		for (k=0;k<3;k++) pos[k]=preceph[j+i].satePos[satindex].sateXYZ[k];
-		
+
 		double sinrot=sin(OMEGAE*tarr[j]); 
 		double cosrot=cos(OMEGAE*tarr[j]);
 		p[0][j]= cosrot*pos[0]-sinrot*pos[1];//earth rotation correction
@@ -524,7 +525,7 @@ void PrecEphPos(SatePos& presatpos, int satindex,double sec,int week,PrecEphData
 		p[2][j]=pos[2];
 	}
 	for (i=0;i<3;i++) presatpos.sateXYZ[i]=InterpolNevil(tarr,p[i],INTERPOLYORDER+1);
-	
+
 }
 
 double LinearInterp(double x1,double x2,double y1,double y2,double x)
@@ -544,9 +545,9 @@ double LagrangeInterp(int step,double* x,double* y,double xk,int flag,int n)
 	double a=1.0;	
 	//Lj(t)=a/b;
 	for(int i=0;i<n+1;i++)
-		{
-			a	*=((xk-x[i])/(x[1]-x[0]));//scale=(x[i]-x[j])
-		}
+	{
+		a	*=((xk-x[i])/(x[1]-x[0]));//scale=(x[i]-x[j])
+	}
 
 	if(flag==0)
 	{
@@ -585,7 +586,7 @@ double LagrangeInterp(int step,double* x,double* y,double xk,int flag,int n)
 				result	=a/b*y[0];
 			}
 		}
-		
+
 	}
 	return result;
 }
@@ -644,7 +645,7 @@ int AbsIndMaxInd(double* a,int num)
 	return ind;
 }
 
- double FreqSquareRatio(int sysid,int freqIndex)
+double FreqSquareRatio(int sysid,int freqIndex)
 {
 	if(freqIndex==0)// ionosphere free
 	{
@@ -697,8 +698,8 @@ int AbsIndMaxInd(double* a,int num)
 	}
 }
 
- double WaveLength(int sysid,int freqIndex)
- {
+double WaveLength(int sysid,int freqIndex)
+{
 	if (sysid==1 || sysid==4)
 	{
 		if (freqIndex==1)
@@ -744,10 +745,10 @@ int AbsIndMaxInd(double* a,int num)
 			return CLIGHT/FREQ6_BDS;
 		}
 	}
- }
+}
 
 
- int	  Prn2Sysid(int prn)
+int	  Prn2Sysid(int prn)
 {
 	if(prn<=32)
 	{
@@ -766,7 +767,7 @@ int AbsIndMaxInd(double* a,int num)
 		return 4;
 	}	
 }
- void	  RotationMatrix3(math::matrix<double>& R,double theta, int index)
+void	  RotationMatrix3(math::matrix<double>& R,double theta, int index)
 {
 	double		cost	=		cos(theta);
 	double		sint	=		sin(theta);
@@ -791,7 +792,7 @@ int AbsIndMaxInd(double* a,int num)
 }
 
 
- CString Sys(int Sysid)
+CString Sys(int Sysid)
 {
 	CString s;
 	if (Sysid==1)
@@ -823,29 +824,29 @@ int AbsIndMaxInd(double* a,int num)
 int Sysid(CString sys)
 {
 	if (sys=='M')
-			{
-				return 6;
-			}
-			else if (sys=='G')
-			{
-				return 1;
-			}
-			else if (sys=='R')
-			{
-				return 2;
-			}
-			else if (sys=='E')
-			{
-				return 3;
-			}
-			else if (sys=='S')
-			{
-				return 4;
-			}
-			else if (sys=='C')
-			{
-				return 5;
-			}
+	{
+		return 6;
+	}
+	else if (sys=='G')
+	{
+		return 1;
+	}
+	else if (sys=='R')
+	{
+		return 2;
+	}
+	else if (sys=='E')
+	{
+		return 3;
+	}
+	else if (sys=='S')
+	{
+		return 4;
+	}
+	else if (sys=='C')
+	{
+		return 5;
+	}
 }
 
 extern int Sysid( int prn )
@@ -873,13 +874,13 @@ extern int Sysid( int prn )
 }
 
 int Prn(CString sys,int prn)
-	
+
 {
-		 if (sys==_T("G") )return prn;
-		else if (sys=='R')return 50+prn;
-		else if (sys=='E')return 100+prn;
-		else if (sys=='S')return 150+prn;
-		else if (sys=='C')return 200+prn;
+	if (sys==_T("G") )return prn;
+	else if (sys=='R')return 50+prn;
+	else if (sys=='E')return 100+prn;
+	else if (sys=='S')return 150+prn;
+	else if (sys=='C')return 200+prn;
 }
 extern void Freq(int sysid,double* freq)
 {
@@ -898,11 +899,11 @@ extern void Freq(int sysid,double* freq)
 }
 
 /*	
-	combine the IF obs for different system
-	I:
-		sysid
-		obs		3*1 (m)
-		index	2*1	the frequencies index of two frequency  freq[0]>freq[1]  ==index[0]<index[1]
+combine the IF obs for different system
+I:
+sysid
+obs		3*1 (m)
+index	2*1	the frequencies index of two frequency  freq[0]>freq[1]  ==index[0]<index[1]
 */
 extern double IonoFree(int sysid,double* obs,int* index)
 {
@@ -1025,9 +1026,9 @@ extern double CombFreq( int sysid,int*coef )
 }
 
 /*
- *			回首向来萧瑟处，也无风雨也无晴
- *			
- **/
+*			回首向来萧瑟处，也无风雨也无晴
+*			
+**/
 extern void FreqRatio(int sysid,double* freq)
 {
 	if (sysid==1)
@@ -1097,12 +1098,12 @@ extern void  EarthConst(int ellipInd,double& a,double& eE)
 }
 
 /*
-	BLH2XYZ transfer coordiante BLH to XYZ in ECEF
-		I:
-			BLH			3*1  (rad,rad,m)
-			ellipInd		index of ellipsoid 
-	   O:
-			XYZ			3*1(m,m,m)
+BLH2XYZ transfer coordiante BLH to XYZ in ECEF
+I:
+BLH			3*1  (rad,rad,m)
+ellipInd		index of ellipsoid 
+O:
+XYZ			3*1(m,m,m)
 */
 
 extern void  BLH2XYZ(double* BLH,int ellipInd,double* XYZ)
@@ -1118,18 +1119,18 @@ extern void  BLH2XYZ(double* BLH,int ellipInd,double* XYZ)
 }
 
 /*
-	XYZ to BLH
-		I:
-			XYZ
-			ellipInd same as sysid
-		O:
-			BLH
+XYZ to BLH
+I:
+XYZ
+ellipInd same as sysid
+O:
+BLH   unit: deg/deg/m
 */
 extern void  XYZ2BLH(double* XYZ,int ellipInd,double* BLH)
 {
 	double r		=	sqrt(pow(XYZ[0],2)+pow(XYZ[1],2));
 	double	B0		=	atan(	(XYZ[2])/r);
-	
+
 	double a,eE,N,B;
 	EarthConst(ellipInd,a,eE);
 
@@ -1175,13 +1176,13 @@ extern math::matrix<double> XYZ2BLH(math::matrix<double> XYZ,int ellipInd)
 }
 
 /*
-	NEU to XYZ
-		I:
-			NEU		3*1
-	        B0		  latitude of topocenter        (rad)              
-	        L0		  longitude of topocenter		(rad)
-		O:
-			XYZ		3*1
+NEU to XYZ
+I:
+NEU		3*1
+B0		  latitude of topocenter        (rad)              
+L0		  longitude of topocenter		(rad)
+O:
+XYZ		3*1
 */
 extern void  NEU2XYZ(double* NEU,double B0,double L0,double* XYZ)
 {
@@ -1190,13 +1191,24 @@ extern void  NEU2XYZ(double* NEU,double B0,double L0,double* XYZ)
 	XYZ[2]	=	cos(B0)*NEU[0]+sin(B0)*NEU[2];
 }
 
+
+extern math::matrix<double> Qxyz2Qneu(math::matrix<double> qxyz,double b0,double l0)
+{
+	math::matrix<double> r(3,3);
+	double sinb=sin(b0),cosb=cos(b0),sinl=sin(l0),cosl=cos(l0);
+	r(0,0)=-sinb*cosl;	r(0,1)=-sinb*sinl;		r(0,2)=cosb;
+	r(1,0)=-sinl;				r(1,1)=cosl;
+	r(2,0)=cosb*cosl;		r(2,1)=cosb*sinl;		r(2,2)=sinb;
+	return r*qxyz*~r;
+}
+
 /*
-	XYZ ro NEU
-		I:
-			XYZ		difference of three componets
-			B0,L0 (rad,rad)
-		O:
-			NEU
+XYZ ro NEU
+I:
+XYZ		difference of three componets
+B0,L0 (rad,rad)
+O:
+NEU
 */
 extern void  XYZ2NEU(double* XYZ,double B0,double L0,double* NEU)
 {
@@ -1236,14 +1248,14 @@ extern math::matrix<double>  XYZ2NEU(double* coorBase,double* coorRover )
 //	return XYZ2NEU(dxyz,blh[0],blh[1]);
 //}
 /*
- *XYZ the topocenter
- *XYZs the object coordinate
- */
+*XYZ the topocenter
+*XYZs the object coordinate
+*/
 void XYZ2RAH(double* XYZ,int sysid,double* XYZs,double& ele,double& azi)
 {
 	double sk[3];
 	double sk1[3];
-	
+
 	XYZ2BLH(XYZ,sysid,sk);//sk=BLH
 	for (int i=0;i<3;i++)
 	{
@@ -1251,20 +1263,20 @@ void XYZ2RAH(double* XYZ,int sysid,double* XYZs,double& ele,double& azi)
 	}
 	double sk2[3];//
 	XYZ2NEU(sk1,sk[0],sk[1],sk2);//sk2=NEU sk1=diff coord
-	
+
 	double rah[3];
 	NEU2RAH(sk2,rah);
-	
+
 	ele=rah[2];
 	azi=rah[1];
 }
 /*
-	get azimuth
-		I:
-			dn	difference if north component between two points
-			de		difference if east component between two points
-		return:
-			azimuth(rad)
+get azimuth
+I:
+dn	difference if north component between two points
+de		difference if east component between two points
+return:
+azimuth(rad)
 */
 extern double  getAzi(double dn,double de)
 {
@@ -1287,14 +1299,14 @@ extern double  getAzi(double dn,double de)
 }
 
 /*
-	NEU to RAH
-		I:
-			NEU 3*1
-		O:
-			RAH 3*1
-			1.ploar range(m)
-			2.azimuth (rad)
-			3.elevation(rad)
+NEU to RAH
+I:
+NEU 3*1
+O:
+RAH 3*1
+1.ploar range(m)
+2.azimuth (rad)
+3.elevation(rad)
 */
 extern void	 NEU2RAH(double *NEU,double* RAH)
 {
@@ -1305,14 +1317,14 @@ extern void	 NEU2RAH(double *NEU,double* RAH)
 
 
 /*
-	NEU to RAH
-		I:
-			RAH 3*1
-			1.ploar range(m)
-			2.azimuth (rad)
-			3.elevation(rad)
-		O:
-			NEU 3*1
+NEU to RAH
+I:
+RAH 3*1
+1.ploar range(m)
+2.azimuth (rad)
+3.elevation(rad)
+O:
+NEU 3*1
 */
 extern void  RAH2NEU(double* RAH,double* NEU)
 {
@@ -1322,13 +1334,13 @@ extern void  RAH2NEU(double* RAH,double* NEU)
 }
 
 /*
-	project  BL to xy in Gauss crd system 
-		I:
-			B,L		(rad,rad)
-			L0			center longtitude for projection(rad)
-			ellipind 
-		O:
-			xy  the Gauss Proj horizontal coordiantes
+project  BL to xy in Gauss crd system 
+I:
+B,L		(rad,rad)
+L0			center longtitude for projection(rad)
+ellipind 
+O:
+xy  the Gauss Proj horizontal coordiantes
 */
 extern void  GaussProj(double B,double L,double L0,int ellipInd,double* xy)
 {
@@ -1338,11 +1350,11 @@ extern void  GaussProj(double B,double L,double L0,int ellipInd,double* xy)
 	double C	=	a/sqrt(1.0-eE);
 
 	double aa=1.0+3.0*pow(eE,2)/4.0+45.0*pow(eE,4)/64.0+175.0*pow(eE,6)/256.0
-						+11025.0*pow(eE,8)/16384.0+43659.0*pow(eE,10)/65536.0;
+		+11025.0*pow(eE,8)/16384.0+43659.0*pow(eE,10)/65536.0;
 	double bb=3.0*pow(eE,2)/4.0 + 15.0*pow(eE,4)/16.0 + 525.0*pow(eE,6)/512.0
-						+2205.0*pow(eE,8)/2048.0 + 72765.0*pow(eE,10)/65536.0;
+		+2205.0*pow(eE,8)/2048.0 + 72765.0*pow(eE,10)/65536.0;
 	double cc=15.0*pow(eE,4)/64.0 + 105.0*pow(eE,6)/256.0
-						+ 2205.0*pow(eE,8)/4096.0 + 10395.0*pow(eE,10)/16384.0;
+		+ 2205.0*pow(eE,8)/4096.0 + 10395.0*pow(eE,10)/16384.0;
 	double dd=35.0*pow(eE,6)/512.0 + 315.0*pow(eE,8)/2048.0 + 31185.0*pow(eE,10)/13072.0;
 
 	double a1 =  aa * a* (1.0 - eE);
@@ -1363,32 +1375,32 @@ extern void  GaussProj(double B,double L,double L0,int ellipInd,double* xy)
 	double M0 = cos(B) * (L-L0);
 	double M2 = M0 * M0;
 	xy[0] = X0 + M2 *N *Tb/2.0+ M2 *M2 *N *Tb/24.0*(5.0-Tb *Tb+9.0*Y2+4.0*Y2 *Y2)+   
-			    M2 *M2 *M2 *N *Tb/720.0*(61.0+(Tb *Tb-58.0)*Tb *Tb);
+		M2 *M2 *M2 *N *Tb/720.0*(61.0+(Tb *Tb-58.0)*Tb *Tb);
 	xy[1] = N *M0 + N *M0 *M2 /6.0*(1.0+Y2-Tb *Tb)+ N *M2 *M2 *M2 /120.0*   
-				(5.0+(Tb *Tb-18.0)*Tb *Tb-(58.0*Tb *Tb-14.0) *Y2);
+		(5.0+(Tb *Tb-18.0)*Tb *Tb-(58.0*Tb *Tb-14.0) *Y2);
 
 }
 
 /*
- *Kronecker C=A@B, @is the symbol of kronecker
- *I:
- *	A			m*n
- *	rowA    m
- *	colA		n
- *	B			k*l
- *	rowB		k
- *	colB		l
- *	flag		indicates the process of kroneker, for diagonal matrix process is simplified 
- *	1=A and B are both diagonal  and square  (default)
- *	2=B is diagonal , A is not,but  A is syms
- *	3=A	is diagonal , B is not
- *	4=A and B are not diagonal
- *O:
- *	C	mk*nl
- *	Note:
- *		A and B are square and symmetrical if flag=1,2,3
- *		due to the list of obs is ordered by  frequency，the combination of vc-mat is Qyy@I, Qyy is k*k (k=1,2,3), I is n*n  
- */
+*Kronecker C=A@B, @is the symbol of kronecker
+*I:
+*	A			m*n
+*	rowA    m
+*	colA		n
+*	B			k*l
+*	rowB		k
+*	colB		l
+*	flag		indicates the process of kroneker, for diagonal matrix process is simplified 
+*	1=A and B are both diagonal  and square  (default)
+*	2=B is diagonal , A is not,but  A is syms
+*	3=A	is diagonal , B is not
+*	4=A and B are not diagonal
+*O:
+*	C	mk*nl
+*	Note:
+*		A and B are square and symmetrical if flag=1,2,3
+*		due to the list of obs is ordered by  frequency，the combination of vc-mat is Qyy@I, Qyy is k*k (k=1,2,3), I is n*n  
+*/
 extern math::matrix<double> Kronecker( math::matrix<double>A,math::matrix<double> B,int flag)
 {
 	int rowA=A.RowNo(), colA=A.ColNo(), rowB=B.RowNo(),colB=B.ColNo();
@@ -1451,7 +1463,7 @@ extern math::matrix<double> Kronecker( math::matrix<double>A,math::matrix<double
 					}
 				}
 			}
-			
+
 		}
 	}
 	else if (flag==4)
@@ -1482,14 +1494,14 @@ extern math::matrix<double> Kronecker( math::matrix<double>A,math::matrix<double
 
 
 /*
- *form the vc matrix of combination obs
- *I:
- *	coef k*k	the coef of combination   k=1,2,3
- *	Qyy	the cofactor or vc mat of non-combined obs 
- *	flag	the number of obs = k
- *O:
- *	Qyy		the vc mat of  combination 	
- */
+*form the vc matrix of combination obs
+*I:
+*	coef k*k	the coef of combination   k=1,2,3
+*	Qyy	the cofactor or vc mat of non-combined obs 
+*	flag	the number of obs = k
+*O:
+*	Qyy		the vc mat of  combination 	
+*/
 extern void VcmatCom(math::matrix<double> coef,math::matrix<double>& Qyy,int flag)
 {
 	math::matrix<double>temp(flag,flag);
@@ -1503,10 +1515,8 @@ extern double traceMat(math::matrix<double> A)
 	for(int i=0;i<num;i++) s+=A(i,i);
 	return s;
 }
-/*
- *eliminate the k th row and k th col of A_n*n to A_n-1*n-1 and  k is in [1, n]
- */
-extern math::matrix<double>ElimRowCol(math::matrix<double>A,math::matrix<double>&U,int k)
+
+extern math::matrix<double>ElimRowColVcmat(math::matrix<double>A,math::matrix<double>&U,int k)
 {
 	int rankA=A.RowNo(),cnt=0;
 	math::matrix<double>B(rankA-1,rankA-1);
@@ -1546,6 +1556,9 @@ extern math::matrix<double>ElimRowCol(math::matrix<double>A,math::matrix<double>
 	return B;
 }
 
+/*
+*eliminate the k th row and k th col of A_n*n to A_n-1*n-1 and  k is in [1, n],  checked
+*/
 extern math::matrix<double>ElimRowColNEQ(math::matrix<double>A,math::matrix<double>&U,int k)
 {
 	int rankA=A.RowNo(),cnt=0;
@@ -1583,11 +1596,10 @@ extern math::matrix<double>ElimRowColNEQ(math::matrix<double>A,math::matrix<doub
 		}
 	}
 	return B-~vec*vec/a;// for normal equation
-	//return B;
 }
 /*
- * A and B must be the symmetrical
- */
+* A and B must be the symmetrical
+*/
 extern math::matrix<double> DiagMatSym(math::matrix<double>A,math::matrix<double>B)
 {
 	int rowA=A.RowNo(), rowB=B.RowNo();
@@ -1634,8 +1646,8 @@ extern math::matrix<double> DiagMatSym(math::matrix<double>A,int rowA,int rowB)
 	return temp;
 }
 /*
- * A and B are not symetrical
- */
+* A and B are not symetrical
+*/
 extern math::matrix<double> DiagMat(math::matrix<double>A,int rowA,int colA,math::matrix<double>B,int rowB,int colB)
 {
 	math::matrix<double>temp(rowA+rowB,colA+colB);
@@ -1723,17 +1735,17 @@ extern math::matrix<double> VecMat(int col,math::matrix<double>A,math::matrix<do
 	math::matrix<double>temp(rowA+rowB,col);
 	int i,j;
 
-		for (j=0;j<col;j++)
+	for (j=0;j<col;j++)
+	{
+		for (i=0;i<rowA;i++)
 		{
-			for (i=0;i<rowA;i++)
-			{
-				temp(i,j)=A(i,j);
-			}
-			for (i=0;i<rowB;i++)
-			{
-				temp(i+rowA,j)=B(i,j);
-			}
+			temp(i,j)=A(i,j);
 		}
+		for (i=0;i<rowB;i++)
+		{
+			temp(i+rowA,j)=B(i,j);
+		}
+	}
 	return temp;
 }
 /* return [A;0] */
@@ -1793,7 +1805,7 @@ extern  math::matrix<double>MultSelfTrans(math::matrix<double> A,int row,int col
 {
 	math::matrix<double> B(row,row);
 	int i,j,k;
-	
+
 	for (i=0;i<row;i++)
 	{
 		for (j=i;j<row;j++)
@@ -1831,8 +1843,8 @@ extern  math::matrix<double>MultSelfTrans2(math::matrix<double> A,int row,int co
 }
 
 /* move vec ai to the end column
- *  [a1,...,ai,...,an]  ->[a1,...,ai+1,...,an,ai] 
- */
+*  [a1,...,ai,...,an]  ->[a1,...,ai+1,...,an,ai] 
+*/
 extern  math::matrix<double>MoveVecColEnd(math::matrix<double>A,int i)
 {
 	int colA=A.ColNo();
@@ -1886,8 +1898,8 @@ extern math::matrix<double>MoveVecRowColEnd(math::matrix<double>A,int i)
 }
 
 /* insert Zero matrix in i th col 
- *		A11	A12	-> A11	 0	 A12	
- */
+*		A11	A12	-> A11	 0	 A12	
+*/
 math::matrix<double> InsertZeroCol(math::matrix<double>A,int colA11,int colNumZero)
 {
 	if (colNumZero==0)
@@ -1908,11 +1920,12 @@ math::matrix<double> InsertZeroCol(math::matrix<double>A,int colA11,int colNumZe
 	return A*B;
 }
 
-/* insert Zero matrix in i th row 
- *		A11		-> A11	 	 
- *		A21	 		  0			   
- *						A21	 	 
- */
+/* insert Zero matrix in k th row 
+*		A11		-> A11	 	 
+*		A21	 		  0			   
+*						A21	 	 
+
+*/
 math::matrix<double> InsertZeroRow(math::matrix<double>A,int rowA11,int rowNumZero)
 {
 	if (rowNumZero==0)
@@ -1933,10 +1946,10 @@ math::matrix<double> InsertZeroRow(math::matrix<double>A,int rowA11,int rowNumZe
 }
 
 /* insert Zero matrix in i th row and i th col
- *		A11	A12	-> A11	 0	 A12	
- *		A21	A22  		  0		 0	   0 
- *							A11	 0	 A12
- */
+*		A11	A12	-> A11	 0	 A12	
+*		A21	A22  		  0		 0	   0 
+*							A11	 0	 A12
+*/
 extern math::matrix<double> InsertZeroRowCol(math::matrix<double>A,int rowA11,int rowcolNumZero)
 {
 	if (rowcolNumZero==0)
@@ -1953,9 +1966,9 @@ extern math::matrix<double> InsertZeroRowCol(math::matrix<double>A,int rowA11,in
 }
 
 /*
- *insert Zero row and col, and -make the A_n*n toA_n+1*n+1, and the k th is ZERO vector in A_n+1*n+1
- or insert before the [A]k.
- */
+*insert Zero row and col, and -make the A_n*n toA_n+1*n+1, 
+*and  k  is position of ZERO vector in A_n+1*n+1  k=1...n+1
+*/
 extern math::matrix<double> InsertZeroRowCol(math::matrix<double>A,int k)
 {
 	int rankA=A.RowNo(),i,j;
@@ -2024,7 +2037,8 @@ extern double	Mean(double *a,int num)
 	double b=0.0;
 	for (int i=0;i<num;i++)
 	{
-		b	=b*((double)i/((double)i+1))+a[i]/(i+1);//b*i/(i+1)+a[i]/(i+1);// false    
+		double s=(double)i;
+		b	=(b*s+a[i])/(s+1);//b*i/(i+1)+a[i]/(i+1);// false    
 	}
 	return	b;
 }
@@ -2039,9 +2053,9 @@ extern double	Std(double* a,int num)
 	return sqrt(b);
 }
 /*
- *ptr[0],ptr[1],...,ptr[Len-1]-->ptr[1],ptr[2],...,ptr[Len-1],tar
- *return ptr[0]
- */
+*ptr[0],ptr[1],...,ptr[Len-1]-->ptr[1],ptr[2],...,ptr[Len-1],tar
+*return ptr[0]
+*/
 extern double ReSetPtrWithElem(double* ptr,double tar,int Len)
 {
 	double s=ptr[0];
@@ -2072,21 +2086,21 @@ extern math::matrix<double> Cholesky( math::matrix<double>A,int n )
 	for (int j=0;j<n;j++)
 	{
 		LL=0.0;
+		for (int r=0;r<j;r++)
+		{
+			LL	+=SQ(L(j,r));
+		}
+
+		L(j,j)=sqrt(A(j,j)-LL);
+		for (int i=j;i<n;i++)
+		{
+			LR=0.0;
 			for (int r=0;r<j;r++)
 			{
-				LL	+=SQ(L(j,r));
+				LR+=L(i,r)*L(j,r);
 			}
-		
-		L(j,j)=sqrt(A(j,j)-LL);
-			for (int i=j;i<n;i++)
-			{
-				LR=0.0;
-				for (int r=0;r<j;r++)
-				{
-					LR+=L(i,r)*L(j,r);
-				}
-				L(i,j)=(A(i,j)-LR)/L(j,j);
-			}
+			L(i,j)=(A(i,j)-LR)/L(j,j);
+		}
 	}
 	return L;
 }
@@ -2121,7 +2135,7 @@ extern math::matrix<double> MultiplyselfLowerUpper( math::matrix<double>A,int n 
 				B(i,j)+=A(i,k)*A(j,k);
 			}
 			B(j,i)=B(i,j);
-			
+
 		}
 	}
 	return B;
@@ -2319,8 +2333,8 @@ extern bool MatrixSovle( math::matrix<double> a,math::matrix<double> b,math::mat
 			c(i,j)=p[i][j+n];
 		}
 	}
-		
-		return true;
+
+	return true;
 }
 
 /* remove the row and col i th*/
@@ -2444,8 +2458,8 @@ extern math::matrix<double> sqrtMat(math::matrix<double>A)
 	return B;
 }
 /*
- *get the position of every element in list1,if sorted by ascending  
- */
+*get the position of every element in list1,if sorted by ascending  
+*/
 extern void GetAscendPos(int* list1,int num,int* pos1)
 {
 	int count=0;
@@ -2464,9 +2478,9 @@ extern void GetAscendPos(int* list1,int num,int* pos1)
 }
 
 /*
- *get the position of a in list1 (num x 1)
- *return -1 , if the a doesn't exist in list1
- */
+*get the position of a in list1 (num x 1)
+*return -1 , if the a doesn't exist in list1
+*/
 extern int GetPos(int* list1,int a,int num)
 {
 	int pos=-1;
@@ -2495,16 +2509,16 @@ extern int MaxIndex(int* ptr,int tar,int num)
 	return maxindex;
 }
 /*
- *sort the Qaa
- *I:
- *	Qaa					the vc-mat of a_hat
- *	ambinfo			the ambiguity information, before the sort
- *	
- *O:	
- *	parambinfo		the partial ambiguty info, after the sort
- *
- *return: Q			the sort Q
- */
+*sort the Qaa
+*I:
+*	Qaa					the vc-mat of a_hat
+*	ambinfo			the ambiguity information, before the sort
+*	
+*O:	
+*	parambinfo		the partial ambiguty info, after the sort
+*
+*return: Q			the sort Q
+*/
 math::matrix<double> SortQaa(math::matrix<double> Qaa,math::matrix<double>& Qba,math::matrix<double>&ahat,DdAmbInfo ambinfo,DdAmbInfo& parambinfo,DdObsInfo obsinfo)
 {
 	math::matrix<double> Q=Qaa;
@@ -2547,19 +2561,19 @@ math::matrix<double> SortQaa(math::matrix<double> Qaa,math::matrix<double>& Qba,
 		}
 		delete[] elelist,prnlist;
 	}
-		return Q;
+	return Q;
 }
 
 /* 
- *select VC-mat according to the elevations
- * 1.	sort Qaa on the elevations (every freq )
- * 2.  select Qaa on the maskele
- * 
- *maskele   /degree 
- */
+*select VC-mat according to the elevations
+* 1.	sort Qaa on the elevations (every freq )
+* 2.  select Qaa on the maskele
+* 
+*maskele   /degree 
+*/
 
 extern math::matrix<double> SelectQaa(math::matrix<double>Qaasort,math::matrix<double>Qbasort, math::matrix<double>& QbaPar,math::matrix<double>& ahatPar,
-													DdObsInfo obsinfo,DdAmbInfo parambinfo,double maskele)
+	DdObsInfo obsinfo,DdAmbInfo parambinfo,double maskele)
 {
 
 	math::matrix<double> Qf,ahat=ahatPar;
@@ -2597,15 +2611,15 @@ extern math::matrix<double> SelectQaa(math::matrix<double>Qaasort,math::matrix<d
 			QbaPar		=		(i==0) ? GetBlockMat(Qbasort,1,3,1,cnt[0],2):ConvergeMat(QbaPar.RowNo(),QbaPar,GetBlockMat(Qbasort,1,3,cntpre+1,cntpre+cnt[i],2)) ;
 			ahatPar		=		(i==0) ? GetBlockMat(ahat,1,cnt[0],1,1,2):VecMat(1,ahatPar,GetBlockMat(ahat,cntpre+1,cntpre+cnt[i],1,1,2));
 		}
-			}
+	}
 	delete[] cnt;
 	return Qf;
- }
-	
+}
+
 
 /*sort list
- *sort list by ascending
- */
+*sort list by ascending
+*/
 extern void SortObsEpochData(ObsEpochData& data)
 {
 	ObsDataRecord temp;
@@ -2628,7 +2642,7 @@ extern void SortObsEpochData(ObsEpochData& data)
 			data.obsdatarecord[pos]=data.obsdatarecord[i];
 			data.obsdatarecord[i]=temp;
 		}
-		
+
 	}
 }
 
@@ -2671,7 +2685,7 @@ extern void OutPtr(int* ptr,int num)
 
 extern void Cstr2charPtr(CString kkk,char* code)
 {
-	
+
 	int nLen=kkk.GetLength();
 	int nBytes=WideCharToMultiByte(CP_ACP,0,kkk,nLen,NULL,0,NULL,NULL);
 	//code=new char[nBytes+1];
@@ -2680,15 +2694,15 @@ extern void Cstr2charPtr(CString kkk,char* code)
 	code[nBytes]=0;
 }
 /*set ptr to the diagonal of matrix
- *I:
- *	ptr		the pointer
- *	num		the number of elements to set
- *	firstPos	the first position in mat bigger than 0
- *O:
- *	mat
- *Note:
- *	num< min(rownum,colnum)
- */
+*I:
+*	ptr		the pointer
+*	num		the number of elements to set
+*	firstPos	the first position in mat bigger than 0
+*O:
+*	mat
+*Note:
+*	num< min(rownum,colnum)
+*/
 extern void SetPtrToMatdiag(double* ptr,int num,math::matrix<double>&mat,int firstPos)
 {
 	for (int i=0;i<num;i++)
@@ -2744,10 +2758,10 @@ extern double DistofVector(double* a,double* b,int num)
 }
 
 /* MW combination unit: cycle
- *I:
- *	phs		unit	cycle
- *	cod		unit	meter
- */
+*I:
+*	phs		unit	cycle
+*	cod		unit	meter
+*/
 double  MWCom(double* phs, double* cod,int index1,int index2,int sysid)
 {
 	double freq1=FreqSys(sysid,index1),freq2=FreqSys(sysid,index2);
@@ -2948,9 +2962,9 @@ static void SetSys1(CStdioFile& Commfile,CString& line,DdCtrl& ddctrl,int* a,int
 	}
 	if (line.Find(_T("#SIGMACOD"))!=-1)
 	{
-			Commfile.ReadString(line);
-			line=line.Trim();
-			ddctrl.sigmaCod=_wtof(line);
+		Commfile.ReadString(line);
+		line=line.Trim();
+		ddctrl.sigmaCod=_wtof(line);
 	}
 	if (line.Find(_T("#SIGMAPHS"))!=-1)
 	{
@@ -2990,7 +3004,7 @@ static void SetFile(CStdioFile& Commfile,CString& line,InPutFileSet& inputfile)
 		inputfile.numEph=i;
 		Commfile.ReadString(line);
 	}
-	
+
 	if(line.Find(_T("#SP3"))!=-1 )  
 	{
 		num=_wtoi(line.Right(1));
@@ -3079,7 +3093,7 @@ static void SetCrd(CStdioFile& Commfile,CString& line,double* baseCrd,double* ro
 	}
 	if(line.Find(_T("#ROVERCORD"))!=-1)
 	{
-	    if ( _wtoi(line.Right(1))==1)
+		if ( _wtoi(line.Right(1))==1)
 		{
 			Commfile.ReadString(line);
 			line=line.Trim();
@@ -3140,7 +3154,7 @@ extern void ReadCommFile(DdCtrl* ddctrl,InPutFileSet& inputfile,CString CommandF
 			fileflag=0;
 			continue;
 		}
-	//	if (line.Find(_T("#INPUTFILE"))==-1 && fileflag==0) continue;
+		//	if (line.Find(_T("#INPUTFILE"))==-1 && fileflag==0) continue;
 		if (line.Find(_T("#INPUTFILE"))!=-1 ) fileflag=_wtoi(line.Right(1));
 		if (fileflag!=0)	SetFile(Commfile,line,inputfile);
 	}
@@ -3165,7 +3179,7 @@ extern void BrowseFile(CString& strDir)
 	bool		   bFound;
 	if(strDir.Find(_T("/")) !=-1) bFound=fs.FindFile(strDir+_T("/*.*"));
 	if(strDir.Find(_T("\\")) !=-1) bFound=fs.FindFile(strDir+_T("\\*.*"));	
-		
+
 	while(bFound)
 	{
 		bFound=fs.FindNextFile();
@@ -3248,9 +3262,9 @@ extern void FileOutTropsIonoFloat(fstream& fout,math::matrix<double> IonoVector,
 	}
 }
 /*
- *b_updated contains the iono and trop after being updated
+*b_updated contains the iono and trop after being updated
 
- */
+*/
 extern void FileOutTropsIonoFix(fstream& fout,math::matrix<double> b_updated,DdData curData,double* ptrMapCur,int flag)
 {
 	int num=curData.pairNum;
@@ -3266,7 +3280,48 @@ extern void FileOutTropsIonoFix(fstream& fout,math::matrix<double> b_updated,DdD
 	}
 }
 
+extern int isFileExist(char* file)
+{
+	fstream s;
+	s.open(file,ios::in);
+	if (!s)
+	{
+		return 0;
+	} 
+	return 1;
+}
 
+extern void OutHMS(double sec)
+{
+	int t0,t1,t2,t3;
+	t0=((int)sec%86400);
+	t1=t0/3600; //hour
+	t2=(t0-t1*3600)/60;  //hour
+	t3=(t0-t1*3600-t2*60)%60;
 
+	cout<<t1<<" "<<t2<<" "<<t3<<" ";
+}
+extern double* ghg()
+{
+	double* s=new double[5];
+	return s;
+}
 
+extern void deleteFile()
+{
+	char* crd1="CrdFileFix.txt";
+	if(isFileExist(crd1)) remove(crd1);
+	char* crd2="CrdFileFloat.txt";
+	if(isFileExist(crd2)) remove(crd2);
+	char* iono="IonoFile.txt";
+	if(isFileExist(iono)) remove(iono);
+	char* fl="CrdFileFloatNL.txt";
+	if(isFileExist(fl)) remove(fl);
 
+	char* logfile="LogFile.txt";
+	if(isFileExist(logfile)) remove(logfile);
+	remove("ratioFile.txt");
+	remove("SppFile.txt");
+	remove("distAzi.txt");
+
+}

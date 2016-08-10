@@ -108,15 +108,18 @@ public:
 	void outNL(AmbData* NL1,fixinfo* infoNL,fixinfo* infoWL,double thres_a);
 	// void ErtkBDS(DdData curData);
 	 DMatrix ErtkBDS(DdData curData);
-	 void GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag2, double threshold,DdData curData );
+	// void GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag2, double threshold,DdData curData );
+	 void GetEWLAmbBDS(double* ewl1,double* ewl2,int* fixflag1,int* fixflag2, double threshold,DdData curData,int EpochCtrl );
 	 DMatrix FormWeightErtk(int numSinlge,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase);
 	 DMatrix FormWeightErtkNl(int numSinlge,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase);
 	 void ErtkBDSWithNl(DdData curData);
 	 void CycleSlipDetectionBDSTriple(double thresGF,double thresMW,DdData& curData,DdData preData);
 	 DMatrix FormWeightSingleFreqPhs(int singleFreqObsNum,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase);
-	 DMatrix ErtkBDSFloat(DdData curData);
+	 bool ErtkBDSFloat(DdData curData);
 	 void FormDesMatIonoBDSErtk(math::matrix<double>& DesMatIono,DdData dddata,int numCodType,int numPhsType,double* freqCod,double* freqPhs);
 	 void IonoSmooth(DdData& curdata,DdData curdataCycle);
+	 void IonoSmoothB1B2(DdData& curdata,DdData curdataCycle);
+	 void ErtkBDSWithNlSmooth(DdData curData,DdData preData);
 };
 
 extern void EqualAmbInfo(DdAmbInfo ambinfo);
