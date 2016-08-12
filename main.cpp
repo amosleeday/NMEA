@@ -111,6 +111,20 @@ void testMat()
 	//cout<<Kronecker(yu,I,2);
 }
 
+void testneu()
+{
+	double coor[3],co[3];
+	coor[0]=-2500946.203;
+	coor[1]=-4670472.824;
+	coor[2]=3539500.578;
+	co[0]=-20507778.8799;
+	co[1]=-9658597.467;
+	co[2]=13900102.049;
+	double ele,azi;
+	XYZ2RAH(coor,1,co,ele,azi);
+	cout<<ele<<"  "<<azi<<endl;
+}
+
 void SingleSys(Position spp,DdData& dddataPre,DdData& dddataCurr,SdData& lastSdData,ObsEpochData& roverData1,ObsEpochData& baseData1,
 	SppCtrl sppctrl,DdCtrl ddctrl, DdAmbInfo& ambinfo,DdAmbInfo& preambinfo,SppInfo sppinfo,SppInfo baseInfo,DdObsInfo ddobsinfo1,
 	BroadEphHeader brdephheader,BroadEphData* broadephdata,BroadEphDataGlo* gloeph,int nSate,int nSateGlo,
@@ -155,7 +169,7 @@ void SingleSys(Position spp,DdData& dddataPre,DdData& dddataCurr,SdData& lastSdD
 		phsNum+=ddobsinfo1.NoPhs(i);
 		obsNum+=ddobsinfo1.NoCod(i)+ddobsinfo1.NoPhs(i);//the number of all obs in one system at current epoch
 	}
-
+	
 	int ionoNum=dddataCurr.pairNum;
 	int ambNum=ambinfo.TotalUnfixNum();
 	//if(nEpoch>1)ambNum=preambinfo.SumUnfix();
@@ -699,7 +713,7 @@ void ProcessSingle(CString commandFile,int sysidUse,const char* outFile)
 		if(epochData1.sateNum>=5&&ddctrl.CodTypeNo()>1)	epochData1=epochData1.AutoShrink(2);
 		if(epochData2.sateNum>=5&&ddctrl.CodTypeNo()>1)	epochData2=epochData2.AutoShrink(2);
 		dt=(epochData1.week-epochData2.week)*7*86400.0+(epochData1.sec-epochData2.sec);
-		if (1)//fabs(dt)<0.5
+		if (fabs(dt)<0.5)//
 		{
 			nEpoch++;
 			lastSdData.ZeroElem();
@@ -720,11 +734,7 @@ void ProcessSingle(CString commandFile,int sysidUse,const char* outFile)
 			t1=t0/3600; //hour
 			t2=(t0-t1*3600)/60;  //hour
 			t3=(t0-t1*3600-t2*60)%60;
-#if FileOutSpp
-			//fout<<"epoch:   "<<t1<<"  "<<t2<<"  "<<t3<<endl;
-			SppFileOut(fout,sppinfo);
 
-#endif
 			continue; /* spp done*/
 
 			/*difference*/
@@ -869,19 +879,22 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 	//output to file
 	fstream fout;
 	fout.open(outFile,ios::out);
+	int flag20=0,flag15=0,flag10=0,flag5=0;
+	double X[3]={-2823793.9960,   4656028.3870,   3309791.2420};
+	int gap=300;
 	while (eventFlag1!=10 && eventFlag2!=10)
 	{
 		epochData1.ZeroElem();	epochData2.ZeroElem();
 		epochData1=readdata.GetEpochData(Ofile1,line1,obsHeader1,nEpoch1,eventFlag1);
 		epochData1.Sort();
 		epochData2=readdata.GetEpochData(Ofile2,line2,obsHeader2,nEpoch2,eventFlag2);
-		epochData2.Sort();/**/
+		epochData2.Sort();
 		int ctrlNum=ddctrl.CodTypeNo();
-
+		
 		if(epochData1.sateNum>=5)	epochData1=epochData1.AutoShrink(ctrlNum);
 		if(epochData2.sateNum>=5)	epochData2=epochData2.AutoShrink(ctrlNum);
 		dt=(epochData1.week-epochData2.week)*7*86400.0+(epochData1.sec-epochData2.sec);
-		if (fabs(dt)<0.5)//
+		if (fabs(dt)<0.5)
 		{
 			nEpoch++;
 			if (nEpoch%1000==0)
@@ -889,19 +902,19 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 				OutHMS(epochData1.sec);
 				cout<<endl;
 			}
-			if (nEpoch<00)
+			
+			if (nEpoch<7200)
 			{
 				continue;
 			}
-
-			/*ad-cd*/
+				/*ad-cd*/
 			if(nEpoch>29500) epochData1=epochData1.RemovePrn(209);
 
 			epochData1=epochData1.RemovePrn(205);
-			if(nEpoch>49200&&nEpoch<57000) epochData1=epochData1.RemovePrn(207);
+			if(nEpoch>51000&&nEpoch<57000) epochData1=epochData1.RemovePrn(207);
 			if(nEpoch>60000) epochData1=epochData1.RemovePrn(212);
- 			if(nEpoch>41000&&nEpoch<45000) epochData1=epochData1.RemovePrn(211);
-
+			if(nEpoch>41000&&nEpoch<45000) epochData1=epochData1.RemovePrn(211);
+		
 
 			roverData.ZeroElem();	baseData.ZeroElem();  sppinfo.ZeroElem(); baseInfo.ZeroElem();lastSdData.ZeroElem();
 			if (sysidUse==1 || sysidUse==3 ||sysidUse==5)
@@ -914,24 +927,24 @@ void ProcessSingleErtk(CString commandFile,int sysidUse,const char* outFile)
 				spp.StandPosition(brdephheader,gloeph,epochData1,nSateGlo,sppctrl,sppinfoGlo,roverData);//Glo
 				spp.baseStn(baseInfoGlo,gloeph,epochData2,baseData,nSateGlo,sppctrl);//glo
 			}
-continue;
-/*
-			fstream sppFile;
-			sppFile.open("SppFile.txt",ios::app);
-			for (int s=0;s<3;s++)sppFile<<setiosflags(ios::fixed)<<setprecision(3)<<setw(14)<<sppinfo.recPos[s];
-			sppFile<<endl;
-			sppFile.close();
+
+
+			//fstream sppFile;
+			//sppFile.open("SppFile.txt",ios::app);
+			//for (int s=0;s<3;s++)sppFile<<setiosflags(ios::fixed)<<setprecision(3)<<setw(14)<<sppinfo.recPos[s];
+			//sppFile<<endl;
+			//sppFile.close();
 			
-			difference*/
+			/*difference*/
 			//if(Norm(roverCrd,3)>0.0) PtrEqual(roverCrd,sppinfo.recPos,3);
 			int refPrn=0;
 			ddobsinfo.ZeroElem();
-
+			
 			/*set prnPrevious=0 and is_initRTKDone==0;, solve by epoch*/
 			/*set is_initRTKDone=1 and prnPreviuos=XXX, fix the refsat*/
 			prnPreviuos=203;
 			is_initRTKDone=1;
-
+			
 			/*fstream distFile;
 			distFile.open("distAzi.txt",ios::app);
 			distFile<<setiosflags(ios::fixed)<<setw(4)<<sppinfo.validnum<<endl;;
@@ -950,20 +963,20 @@ continue;
 			int refpos;
 			if(prnPreviuos==0)prnPreviuos=refPrn;
 			refpos=GetPos(lastSdData.prn,refPrn,lastSdData.satnum);
-
+			
 			if (nEpoch%100==0)
 			{
 				OutHMS(roverData.sec);
 				cout<<dddataCurr.pairNum<<"  "<<setw(8)<<nEpoch<<setw(5)<<refPrn;
 				cout<<endl;
 			}
-
+			
 			dddataCurr.ZeroElem(); ambinfo.ZeroElem();
 			spp.DoubleDiff(refPrn,refpos,lastSdData,dddataCurr);
 			if(dddataCurr.pairNum<=5) continue;
 			/*int indPreRefInCur=FindPosInt(dddataCurr.rovPrn,dddataCurr.pairNum,prnPreviuos);
 			indPreRefInCur=(dddataCurr.refPrn==prnPreviuos)?0:-1;*/
-			//			if(indPreRefInCur==-1&&nEpoch>1)continue;
+//			if(indPreRefInCur==-1&&nEpoch>1)continue;
 			if(refPrn<200||refPrn>250) 
 				continue;
 			if (prnPreviuos!=0&&prnPreviuos!=refPrn/*&&indPreRefInCur!=-1*/) 
@@ -972,7 +985,7 @@ continue;
 				spp.ChangePreAmb(preambinfo,refPrn,ddctrl);
 				prnPreviuos=refPrn;
 			}
-			 /*not find the preref in currrent list*/
+			/*not find the preref in currrent list*/
 
 			prnPreviuos=refPrn;
 			if(nEpoch>1) spp.CycleSlipDetectionBDSTriple(0.505,2.0,dddataCurr,dddataPre);
@@ -986,26 +999,37 @@ continue;
 			if (nEpoch>1) spp.PassPreAmb(preambinfo,ambinfo,ddctrl.PhsTypeNo());
 
 			/*try fix ewl by epoch*/
-			if(dddataCurr.sec-tmpdata.sec>6000)
+			if(dddataCurr.sec-tmpdata.sec>600)
 			{
 				for (int i=0;i<MAXNUMSATE;i++)
 					ambinfo.fixFlag[0][i]=ambinfo.fixFlag[0][i]=0;
 			}
-
+			
 
 			spp.GetEWLAmbBDS(ambinfo.fixSolu[0],ambinfo.fixSolu[1],ambinfo.fixFlag[0],
-				ambinfo.fixFlag[1],0.2,dddataPre,1);
+											ambinfo.fixFlag[1],0.2,dddataPre,1);
 
+			DdData sub=dddataPre;
+			for (int i=0;i<dddataPre.pairNum;i++)
+			{
+				if (ambinfo.fixFlag[0][i]+ambinfo.fixFlag[1][i]!=2)
+				{
+					sub.rovPrn[i]=ddobsinfo.prnlistPhs[0][i]=ambinfo.prnList[0][i]=0;
+				}
+			}
+			dddataPre=sub.Shrink();
+			ambinfo=ambinfo.Shrink();
+			ddobsinfo=ddobsinfo.Shrink();
 			EqualObsInfo(ddobsinfo); EqualAmbInfo(ambinfo); EqualCtrl(ddctrl);
 
 			//if(nEpoch>5)spp.IonoSmooth(dddataCurr,dddataPre);
 
 			if(nEpoch>=	0)
 			{
-				if(spp.ErtkBDSFloat(dddataCurr))
+				if(spp.ErtkBDSFloatEXT(dddataPre))
 				{
-					spp.ErtkBDS(dddataCurr);
-					spp.ErtkBDSWithNlSmooth(dddataCurr,tmpdata);
+					spp.ErtkBDSEXT(dddataPre);
+					//DMatrix xhat=spp.ErtkBDSWithNlSmooth(dddataCurr,tmpdata);
 					deliverInsideAmbInfo(ambinfo);
 					preddobsinfo=ddobsinfo;
 					preambinfo=ambinfo;
@@ -1016,6 +1040,7 @@ continue;
 				}
 			}
 
+			//cout<<endl;
 		}
 		else
 		{

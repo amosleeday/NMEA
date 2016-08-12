@@ -119,7 +119,10 @@ public:
 	 void FormDesMatIonoBDSErtk(math::matrix<double>& DesMatIono,DdData dddata,int numCodType,int numPhsType,double* freqCod,double* freqPhs);
 	 void IonoSmooth(DdData& curdata,DdData curdataCycle);
 	 void IonoSmoothB1B2(DdData& curdata,DdData curdataCycle);
-	 void ErtkBDSWithNlSmooth(DdData curData,DdData preData);
+	 DMatrix ErtkBDSWithNlSmooth(DdData curData,DdData preData);
+	 DMatrix ErtkBDSEXT(DdData curDatas);
+	 DMatrix FormWeightErtkEXT(int singleFreqObsNum,double eleRefBase,double eleRefRov,double* eleRovRov,double* eleRovBase);
+	 bool ErtkBDSFloatEXT(DdData curDatas);
 };
 
 extern void EqualAmbInfo(DdAmbInfo ambinfo);

@@ -1160,6 +1160,7 @@ public:
 	DdAmbInfo();
 	DdAmbInfo& operator=(const DdAmbInfo& m);
 	DdAmbInfo& Update(DdData curdata);
+	DdAmbInfo& Shrink();
 public:
 	int			pairNum;
 	int			freqNum;
@@ -1185,6 +1186,7 @@ class DdObsInfo//:class DdData
 public:
 	DdObsInfo();
 	DdObsInfo& operator=(const DdObsInfo& m);
+	DdObsInfo& Shrink();
 	void ZeroElem();
 	void SetList(int* prnlist,int ind,int flag);//flag=0,cod; flag=1,phs
 	void	GetUnfixElelist(double* eleptr,int flag,DdAmbInfo ambinfo);
